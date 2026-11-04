@@ -1,6 +1,5 @@
-# Changelog метамодели
-
 ## [Unreleased]
 - Инициализация
-- **ADR-001**: переименование встроенного метатипа `hierarchical-category` → `category`
-- **ADR-002**: поведение создания и навигации для `chapter` (C-CH-01…C-CH-06)
+- **ADR-001**: `hierarchical-category` → `category`
+- **ADR-002**: поведение chapter (C-CH-01…06)
+- **ADR-003**: поведение обёртки `image` (C-IMG-01…05)
