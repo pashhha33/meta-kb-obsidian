@@ -13,3 +13,4 @@
 - свойства `film`: `box-office-domestic`, `box-office-worldwide`
 - отношения ядра: `director`, `actor` (`film`/`video` → `person`)
 - `person.occupation`: расширенный enum (IT + мультимедиа + исторические роли); field-expansion без изменений
+- constraints: сводка INV-01…27 с пометками ADR-001/005 и отсылкой к C-CORE/C-CH/C-IMG
