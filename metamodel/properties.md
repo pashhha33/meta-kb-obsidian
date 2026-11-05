@@ -121,6 +121,43 @@ singer, photographer, artist, animator, journalist, host,
 voice-actor, politician, ruler, military, scientist, philosopher,
 religious-figure, explorer, entrepreneur, athlete, activist
 ```
+### Свойства `person`
+
+**Универсальные**
+
+| Ключ | Label | value_type | required |
+|------|-------|------------|----------|
+| `birth-date` | Дата рождения | `date` | нет |
+| `death-date` | Дата смерти | `date` | нет |
+| `birth-place` | Место рождения | `link` | нет (→ `place`) |
+| `death-place` | Место смерти | `link` | нет (→ `place`) |
+| `citizenship` | Гражданство | `list<string>` | нет |
+| `occupation` | Профессия | `list<enum>` | нет |
+| `specialization` | Специализация | `list<string>` | нет |
+| `field-of-work` | Область деятельности | `list<string>` | нет |
+
+**По профессиям (field-expansion)**
+
+| Ключ | Label | value_type | Типичный occupation |
+|------|-------|------------|---------------------|
+| `office` | Должность / пост | `list<string>` | politician, ruler |
+| `party` | Партия | `list<string>` | politician |
+| `military-rank` | Воинское звание | `string` | military |
+| `sport` | Вид спорта | `list<string>` | athlete |
+| `instrument` | Инструмент | `list<string>` | musician, singer, composer |
+| `genre` | Жанр | `list<string>` | musician, singer, composer, artist |
+
+**Field-expansion (обновлённая таблица)**
+
+| Триггер occupation | adds_properties | adds_relations |
+|--------------------|-----------------|----------------|
+| developer, designer, researcher, teacher, writer, scientist, philosopher, journalist, artist, composer | specialization, field-of-work | — |
+| developer, researcher, teacher, manager, entrepreneur | — | member-of |
+| politician, ruler | office, party | — |
+| military | military-rank | — |
+| athlete | sport | member-of |
+| musician, singer, composer | instrument, genre | — |
+| actor, director, producer, screenwriter, voice-actor | — | — (работы на стороне film/video) |
 
 **Field-expansion (v1, как Reference):**
 
