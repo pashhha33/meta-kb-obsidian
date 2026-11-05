@@ -9,3 +9,4 @@
 - **ADR-005**: исключение `owner` из обязательных свойств
 - `ontology.md`: первая версия онтологии (слои, 9 обязательных свойств, идентичность, `defined_by`)
 - `types.md`: метатипы (10, category), value_types (14), ядро типов (29)
+- `relations.md`: 4 отношения классификации + 14 ядра (`category` вместо hierarchical-category)
