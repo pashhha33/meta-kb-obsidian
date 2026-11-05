@@ -19,3 +19,4 @@
 - ADR-001…005
 - ontology, types, relations, constraints (INV + behaviors), views
 - film: box-office; relations director/actor; person.occupation расширен
+- `properties.md`: универсальные + ядро + roles, box-office, volume, occupation

@@ -4,7 +4,7 @@
 
 **Фаза:** DESIGN-META  
 **Итерация:** ITER-2026-11-05-0  
-**Статус:** ready
+**Статус:** in-progress
 
 **Цель итерации:**
 Уточнить и стабилизировать метамодель (ontology / types / relations / constraints / properties) до уровня, пригодного для проектирования и реализации плагина Obsidian.
@@ -13,4 +13,7 @@
 ITER-2026-11-04-1 (DISCOVERY) — completed. См. `iterations/ITER-2026-11-04-1.md`.
 
 **Следующее действие:**
-Чат: «прочитай репо» или «спроектировать properties» / уточнение открытых мест метамодели.
+Ревизия properties / field-expansion или переход к стабилизации перед DESIGN-PLUGIN.
+
+
+
