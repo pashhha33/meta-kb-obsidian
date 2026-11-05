@@ -70,11 +70,11 @@
 
 ## 5. Рекомендуемый порядок закрытия
 
-1. `validation.md` — встроенные правила (`link-target-exists`, `defined-by-consistent`, unique position в книге, image-has-attachment…).  
-2. Bootstrap — минимальный набор заметок system.  
-3. FE ebook/audiobook (если нужны в v1).  
-4. Plugin settings + индекс image.  
-5. Остальное — EVOLVE.
+1. ~~`validation.md`~~ — **закрыто**  
+2. ~~Bootstrap~~ — **закрыто** (`bootstrap.md`)  
+3. ~~FE ebook/audiobook~~ — **закрыто** (FE-09, FE-10)  
+4. ~~Plugin settings + индекс image~~ — **закрыто** (`plugin-settings.md`)  
+5. Остальное — EVOLVE
 
 ---
 

@@ -145,6 +145,28 @@
 
 > Актёр / режиссёр и т.п.: отдельных FE нет — работы через отношения на `film`/`video`.
 
+### FE-09 — book: format ebook
+
+| Поле | Значение |
+|------|----------|
+| `applies_to_type` | `book` |
+| `trigger_property` | `format` |
+| `trigger_values` | `ebook` |
+| `adds_properties` | `attachment`, `url` |
+| `mode` | `union` |
+
+### FE-10 — book: format audiobook
+
+| Поле | Значение |
+|------|----------|
+| `applies_to_type` | `book` |
+| `trigger_property` | `format` |
+| `trigger_values` | `audiobook` |
+| `adds_properties` | `attachment`, `duration` |
+| `mode` | `union` |
+
+> Жёсткое правило «audiobook без attachment/duration = error» в v1 **не** вводим (Q-007); только развёртывание формы.
+
 ---
 
 ## 5. Триггерные свойства (сводка)

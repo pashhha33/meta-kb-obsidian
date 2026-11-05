@@ -25,3 +25,8 @@
   office, party, military-rank, sport, instrument, genre
 - `field-expansion.md`: реестр FE-01…08 (person/book/image)
 - `gaps.md`: реестр пробелов и отложенных Q-* перед DESIGN-PLUGIN
+- validation.md — реестр rule_key v1 + chapter/image
+- bootstrap.md — 10 метатипов, опциональное ядро
+- field-expansion: FE-09/10 (ebook, audiobook)
+- plugin-settings.md — datetime, wrap, индексы attachment/book
+- gaps §5 закрыт
