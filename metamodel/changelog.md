@@ -23,3 +23,4 @@
 - person: birth/death, citizenship; occupation-triggered props (office, party, military-rank, sport, instrument, genre, field-of-work)
 - person: birth/death/place/citizenship; field-of-work; occupation-triggered
   office, party, military-rank, sport, instrument, genre
+  - `field-expansion.md`: реестр FE-01…08 (person/book/image)
