@@ -14,3 +14,8 @@
 - отношения ядра: `director`, `actor` (`film`/`video` → `person`)
 - `person.occupation`: расширенный enum (IT + мультимедиа + исторические роли); field-expansion без изменений
 - constraints: сводка INV-01…27 с пометками ADR-001/005 и отсылкой к C-CORE/C-CH/C-IMG
+## [ITER-2026-11-04-1] — 2026-11-05
+- DISCOVERY завершён
+- ADR-001…005
+- ontology, types, relations, constraints (INV + behaviors), views
+- film: box-office; relations director/actor; person.occupation расширен
