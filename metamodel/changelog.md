@@ -30,3 +30,5 @@
 - field-expansion: FE-09/10 (ebook, audiobook)
 - plugin-settings.md — datetime, wrap, индексы attachment/book
 - gaps §5 закрыт
+## [ITER-2026-11-05-0] — DESIGN-META completed
+## [Unreleased] — DESIGN-PLUGIN ITER-2026-11-06-0
