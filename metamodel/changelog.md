@@ -11,3 +11,4 @@
 - `types.md`: метатипы (10, category), value_types (14), ядро типов (29)
 - `relations.md`: 4 отношения классификации + 14 ядра (`category` вместо hierarchical-category)
 - свойства `film`: `box-office-domestic`, `box-office-worldwide`
+- отношения ядра: `director`, `actor` (`film`/`video` → `person`)
