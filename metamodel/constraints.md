@@ -3,7 +3,11 @@
 > Статус: в разработке (DISCOVERY)  
 > Источник: REFERENCE + принятые ADR
 
-## Общие обязательные свойства
+## Обязательные свойства объекта (сводка)
+
+`id`, `type`, `defined_by`, `title`, `aliases`, `layer`, `status`, `created_at`, `updated_at`
+
+> `owner` исключён — ADR-005.
 
 ### C-CORE-01. Временные метки
 
