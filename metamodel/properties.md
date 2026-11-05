@@ -125,16 +125,16 @@ religious-figure, explorer, entrepreneur, athlete, activist
 
 **Универсальные**
 
-| Ключ | Label | value_type | required |
-|------|-------|------------|----------|
-| `birth-date` | Дата рождения | `date` | нет |
-| `death-date` | Дата смерти | `date` | нет |
-| `birth-place` | Место рождения | `link` | нет (→ `place`) |
-| `death-place` | Место смерти | `link` | нет (→ `place`) |
-| `citizenship` | Гражданство | `list<string>` | нет |
-| `occupation` | Профессия | `list<enum>` | нет |
-| `specialization` | Специализация | `list<string>` | нет |
-| `field-of-work` | Область деятельности | `list<string>` | нет |
+| Ключ | Label | value_type | required | Примечание |
+|------|-------|------------|----------|------------|
+| `birth-date` | Дата рождения | `date` | нет | |
+| `death-date` | Дата смерти | `date` | нет | |
+| `birth-place` | Место рождения | `link` | нет | → `place` |
+| `death-place` | Место смерти | `link` | нет | → `place` |
+| `citizenship` | Гражданство | `list<string>` | нет | пока string; тип country — позже |
+| `occupation` | Профессия | `list<enum>` | нет | **триггер** field-expansion |
+| `specialization` | Специализация | `list<string>` | нет | может добавляться правилом |
+| `field-of-work` | Область деятельности | `list<string>` | нет | Wikidata P101 |
 
 **По профессиям (field-expansion)**
 
@@ -147,30 +147,30 @@ religious-figure, explorer, entrepreneur, athlete, activist
 | `instrument` | Инструмент | `list<string>` | musician, singer, composer |
 | `genre` | Жанр | `list<string>` | musician, singer, composer, artist |
 
+**`occupation` enum** (без изменений):
+
+```
+developer, designer, researcher, teacher, writer, manager,
+actor, director, producer, screenwriter, composer, musician,
+singer, photographer, artist, animator, journalist, host,
+voice-actor, politician, ruler, military, scientist, philosopher,
+religious-figure, explorer, entrepreneur, athlete, activist
+```
+
 **Field-expansion (обновлённая таблица)**
 
-| Триггер occupation | adds_properties | adds_relations |
-|--------------------|-----------------|----------------|
-| developer, designer, researcher, teacher, writer, scientist, philosopher, journalist, artist, composer | specialization, field-of-work | — |
-| developer, researcher, teacher, manager, entrepreneur | — | member-of |
-| politician, ruler | office, party | — |
-| military | military-rank | — |
-| athlete | sport | member-of |
-| musician, singer, composer | instrument, genre | — |
-| actor, director, producer, screenwriter, voice-actor | — | — (работы на стороне film/video) |
+| Триггер `occupation` (пересечение) | adds_properties | adds_relations |
+|------------------------------------|-----------------|----------------|
+| developer, designer, researcher, teacher, writer, scientist, philosopher, journalist, artist, composer | `specialization`, `field-of-work` | — |
+| developer, researcher, teacher, manager, entrepreneur | — | `member-of` |
+| politician, ruler | `office`, `party` | — |
+| military | `military-rank` | — |
+| athlete | `sport` | `member-of` |
+| musician, singer, composer | `instrument`, `genre` | — |
+| actor, director, producer, screenwriter, voice-actor | — | — (работы через `film`/`video`: `actor`, `director`) |
 
-**Field-expansion (v1, как Reference):**
-
-| Триггер | Значения | Добавляет |
-|---------|----------|-----------|
-| `occupation` | developer, designer, researcher, teacher, writer | `specialization` |
-| `occupation` | developer, researcher, teacher, manager | отношение `member-of` |
-| `format` | paper | `page-count` |
-| `format` | ebook / audiobook | по Reference (attachment и др.) |
-| `creation-method` | ai-generated | `model`, `prompt`, `seed` |
-
-Новые профессии в `trigger_values` старых правил **пока не входят**.  
-Смена триггера не удаляет данные (INV-27).
+Поля, добавляемые правилами, допустимы и без триггера.  
+Смена/удаление значения триггера **не** удаляет данные (INV-27).
 
 ---
 

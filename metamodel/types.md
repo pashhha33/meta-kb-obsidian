@@ -87,12 +87,8 @@ Bootstrap ядра **необязателен**: можно создать то�
 | `question` | Вопрос | `note` | открытый вопрос |
 | `quote` | Цитата | `note` | дословный фрагмент; `derived-from`, `author`, `about` |
 
-**Свойство `occupation` (`person`):**
-
-| Ключ | Label | value_type | required |
-|------|-------|------------|----------|
-| `occupation` | Профессия | `list<enum>` | нет |
-
+**`person`:** универсальные даты/места/гражданство + `occupation` с field-expansion  
+(см. `properties.md`). Фильмография — через отношения на `film`/`video`, не на персоне.
 Мультивыбор. Значения enum:
 
 | Значение | Label |
