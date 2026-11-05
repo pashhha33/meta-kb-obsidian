@@ -87,6 +87,55 @@ Bootstrap ядра **необязателен**: можно создать то�
 | `question` | Вопрос | `note` | открытый вопрос |
 | `quote` | Цитата | `note` | дословный фрагмент; `derived-from`, `author`, `about` |
 
+**Свойство `occupation` (`person`):**
+
+| Ключ | Label | value_type | required |
+|------|-------|------------|----------|
+| `occupation` | Профессия | `list<enum>` | нет |
+
+Мультивыбор. Значения enum:
+
+| Значение | Label |
+|----------|-------|
+| `developer` | Разработчик |
+| `designer` | Дизайнер |
+| `researcher` | Исследователь |
+| `teacher` | Преподаватель |
+| `writer` | Писатель |
+| `manager` | Менеджер |
+| `actor` | Актёр |
+| `director` | Режиссёр |
+| `producer` | Продюсер |
+| `screenwriter` | Сценарист |
+| `composer` | Композитор |
+| `musician` | Музыкант |
+| `singer` | Певец |
+| `photographer` | Фотограф |
+| `artist` | Художник |
+| `animator` | Аниматор |
+| `journalist` | Журналист |
+| `host` | Ведущий |
+| `voice-actor` | Актёр озвучки |
+| `politician` | Политик |
+| `ruler` | Правитель |
+| `military` | Военный |
+| `scientist` | Учёный |
+| `philosopher` | Философ |
+| `religious-figure` | Религиозный деятель |
+| `explorer` | Путешественник |
+| `entrepreneur` | Предприниматель |
+| `athlete` | Спортсмен |
+| `activist` | Общественный деятель |
+
+**Field-expansion (из Reference, пока без новых правил):**
+
+| Триггер | Значения | Добавляется |
+|---------|----------|-------------|
+| `occupation` | `developer`, `designer`, `researcher`, `teacher`, `writer` | свойство `specialization` |
+| `occupation` | `developer`, `researcher`, `teacher`, `manager` | отношение `member-of` |
+
+Новые профессии (мультимедиа / история) в `trigger_values` этих двух правил **пока не входят**; отдельные правила — по необходимости позже.
+
 ### 3.2. Контекст (корни)
 
 | `type_value` | Label | Назначение |

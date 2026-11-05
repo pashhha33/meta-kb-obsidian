@@ -12,3 +12,4 @@
 - `relations.md`: 4 отношения классификации + 14 ядра (`category` вместо hierarchical-category)
 - свойства `film`: `box-office-domestic`, `box-office-worldwide`
 - отношения ядра: `director`, `actor` (`film`/`video` → `person`)
+- `person.occupation`: расширенный enum (IT + мультимедиа + исторические роли); field-expansion без изменений
