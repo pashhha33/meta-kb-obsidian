@@ -308,6 +308,48 @@ Broken link: `link-target-exists` → icon warning, summary = сырая стр�
 5. `artwork` (`list<media>`): несколько image, summary с миниатюрами.  
 6. Broken link в виджете помечен; модалка предлагает заменить.
 
+### 7.5.2. Boolean
+
+**В строке виджета:** toggle (без модалки).  
+**Alt+click / кнопка ✎:** модалка с toggle + OK (для единообразия).
+
+| Действие | Запись |
+|----------|--------|
+| ON | `true` |
+| OFF | удалить ключ **или** `false` (настройка `booleanWriteFalse`, default: писать `false`) |
+
+### 7.5.3. Enum (одиночный)
+
+**В строке:**  
+- если значений ≤ 7 — **cycle** по клику на value (как FileClass Cycle);  
+- иначе — только ✎ → modal select.
+
+**Модалка:** radio / dropdown по `enum_values` определения property.  
+Пустое значение = удалить ключ (если не required).
+
+### 7.5.4. list\<enum\>
+
+Модалка: multi-checkbox по `enum_values`.  
+Chips в summary. Порядок: порядок `enum_values`, не порядок кликов (стабильность).
+
+Пример: `occupation`, `roles`.
+
+### 7.5.5. string / text / number / date / datetime
+
+| type | Modal |
+|------|--------|
+| `string` | input, одна строка |
+| `text` | textarea |
+| `number` | input[type=number]; пусто → удалить ключ |
+| `date` | date picker → `YYYY-MM-DD` |
+| `datetime` | datetime picker; **store UTC**; display per `datetimeDisplay` |
+
+Read-only datetime (`created_at` / `updated_at`): только summary, без ✎.
+
+### 7.5.6. uuid
+
+Только read-only в виджете (`id`, `defined_by`). Редактирование через UI запрещено.
+
 
 ### 7.6. Служебные / вычисляемые поля
 
@@ -340,3 +382,12 @@ Widget читает: Registry, Schema (effective fields), property/relation defi
 - Кнопка у `birth-date` открывает date picker; значение пишется в frontmatter.  
 - Core Properties panel не видна при default settings.  
 - `char-count` у chapter отображается, не редактируется.
+
+### 7.10. Группировка строк
+
+1. **Системные** (свёрнуто по умолчанию): type, layer, status, id, defined_by, created_at, updated_at  
+2. **Схема** — effective properties (без системных)  
+3. **Отношения** — effective relations (author, chapter-of, …)  
+4. **Вычисляемые** — char-count, author-sheets (read-only)
+
+Подписи секций локализованы (RU в v1 UI strings).
