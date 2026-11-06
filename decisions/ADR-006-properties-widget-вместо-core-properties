@@ -1,0 +1,17 @@
+# ADR-006: Properties Widget вместо core Properties
+
+**Статус:** accepted  
+**Дата:** 2026-11-06  
+**Итерация:** ITER-2026-11-06-0
+
+## Решение
+
+- UI свойств — виджет плагина: label вместо key, модалки по value_type.
+- Core Obsidian Properties по умолчанию скрыты.
+- Референс UX: FileClass (кнопка у поля, note-fields modal).
+- Схема полей — metamodel effective fields, не отдельный fileClass-формат.
+
+## Последствия
+
+Первый IMPL-срез = widget + минимальный registry/schema.
+Риск: хрупкость CSS-hide core UI при обновлениях Obsidian.

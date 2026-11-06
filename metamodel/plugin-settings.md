@@ -12,7 +12,8 @@
 | `suggestWrapImages` | boolean | `true` | hover «создать обёртку» |
 | `authorSheetChars` | number | `40000` | знаков в авторском листе |
 | `strictValidation` | boolean | `false` | error блокирует save (иначе только статус) |
-
+ `hideCoreProperties` | boolean | `true` | скрыть встроенные Properties |
+| `propertiesWidgetLocation` | `sidebar` | `sidebar` | v1 only sidebar |
 ## Индекс: attachment → image
 
 Назначение: C-IMG-05 (одна обёртка на файл).
@@ -30,3 +31,5 @@
 
 - Индекс `book → chapters[]` по `chapter-of` + sort `position` (для навигации и char-count).  
 - Не персистить обязательно: можно перестраивать при load.
+
+|
