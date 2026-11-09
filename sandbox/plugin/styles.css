@@ -1,0 +1,341 @@
+/* ==========================================================================
+   Meta KB plugin styles — ITER-2026-11-06-0
+   ADR-006: встроенная панель Properties скрывается, вместо неё — виджет
+   плагина «Meta KB Properties» в правой боковой панели.
+   ========================================================================== */
+
+/* --- Скрытие core Properties (настройка hideCoreProperties, default: on) ---
+   Класс вешается на <body> из main.ts при загрузке/смене настройки.
+   Селектор .metadata-container актуален для Obsidian 1.5+; риск хрупкости
+   при обновлениях Obsidian зафиксирован в ADR-006. */
+body.meta-kb-hide-core-properties .metadata-container {
+	display: none !important;
+}
+
+/* Заголовок «Properties» над панелью (встречается в части тем/версий) */
+body.meta-kb-hide-core-properties .metadata-properties-heading {
+	display: none !important;
+}
+
+/* ==========================================================================
+   Properties Widget (правая боковая панель)
+   ========================================================================== */
+
+.workspace-leaf-content[data-type="meta-kb-properties"] .view-content {
+	padding: 0;
+	overflow-y: auto;
+}
+
+.meta-kb-properties {
+	padding: 8px 10px 24px;
+	font-size: var(--font-ui-small);
+}
+
+/* --- Шапка файла --- */
+.meta-kb-file-header {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	padding: 4px 2px 10px;
+}
+
+.meta-kb-file-name {
+	flex: 1;
+	font-weight: var(--font-bold);
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.meta-kb-type-chip {
+	flex-shrink: 0;
+	font-size: var(--font-ui-smaller);
+	font-family: var(--font-monospace);
+	padding: 1px 8px;
+	border-radius: 10px;
+	background: var(--background-modifier-hover);
+	color: var(--text-muted);
+}
+
+/* --- Плейсхолдеры / пустые состояния --- */
+.meta-kb-empty {
+	color: var(--text-muted);
+	padding: 14px 4px;
+	line-height: 1.5;
+}
+
+/* --- Секции (DESIGN.md §7.10) --- */
+.meta-kb-section {
+	margin-bottom: 10px;
+}
+
+.meta-kb-section-header {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	padding: 4px 2px;
+	cursor: pointer;
+	user-select: none;
+	color: var(--text-muted);
+	font-size: var(--font-ui-smaller);
+	text-transform: uppercase;
+	letter-spacing: 0.04em;
+}
+
+.meta-kb-section-header::before {
+	content: "›";
+	display: inline-block;
+	transition: transform 0.1s ease;
+	font-size: 1em;
+	line-height: 1;
+}
+
+.meta-kb-section:not(.is-collapsed) .meta-kb-section-header::before {
+	transform: rotate(90deg);
+}
+
+.meta-kb-section.is-collapsed .meta-kb-section-body {
+	display: none;
+}
+
+.meta-kb-section-title {
+	font-weight: var(--font-bold);
+}
+
+.meta-kb-section-count {
+	opacity: 0.7;
+}
+
+/* --- Строка поля (DESIGN.md §7.4) --- */
+.meta-kb-field-row {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	padding: 4px 4px;
+	border-radius: var(--radius-s);
+}
+
+.meta-kb-field-row:hover {
+	background: var(--background-modifier-hover);
+}
+
+.meta-kb-field-row.is-read-only .meta-kb-field-value {
+	color: var(--text-faint);
+}
+
+.meta-kb-field-icon {
+	display: flex;
+	flex-shrink: 0;
+	align-items: center;
+	justify-content: center;
+	width: 16px;
+	height: 16px;
+	color: var(--text-faint);
+}
+
+.meta-kb-field-icon svg {
+	width: 14px;
+	height: 14px;
+}
+
+.meta-kb-field-label {
+	flex-shrink: 0;
+	max-width: 42%;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+	color: var(--text-normal);
+}
+
+.meta-kb-field-value {
+	flex: 1;
+	min-width: 0;
+	text-align: right;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+	color: var(--text-muted);
+}
+
+.meta-kb-field-value.is-empty {
+	color: var(--text-faint);
+}
+
+.meta-kb-field-value.is-link {
+	color: var(--link-color);
+	cursor: pointer;
+}
+
+.meta-kb-field-value.is-link:hover {
+	text-decoration: underline;
+}
+
+.meta-kb-field-actions {
+	flex-shrink: 0;
+	display: flex;
+}
+
+.meta-kb-icon-button {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	background: transparent;
+	border: none;
+	box-shadow: none;
+	padding: 2px;
+	height: auto;
+	color: var(--text-faint);
+	cursor: pointer;
+}
+
+.meta-kb-icon-button:hover {
+	color: var(--text-normal);
+}
+
+.meta-kb-icon-button svg {
+	width: 14px;
+	height: 14px;
+}
+
+/* --- Переключатель boolean (строка виджета и модалка) --- */
+.meta-kb-switch {
+	position: relative;
+	flex-shrink: 0;
+	margin-left: auto;
+	width: 32px;
+	height: 18px;
+	border-radius: 9px;
+	background: var(--background-modifier-border);
+	cursor: pointer;
+	transition: background 0.15s ease;
+}
+
+.meta-kb-switch::after {
+	content: "";
+	position: absolute;
+	top: 2px;
+	left: 2px;
+	width: 14px;
+	height: 14px;
+	border-radius: 50%;
+	background: var(--text-muted);
+	transition: left 0.15s ease, background 0.15s ease;
+}
+
+.meta-kb-switch.is-on {
+	background: var(--interactive-accent);
+}
+
+.meta-kb-switch.is-on::after {
+	left: 16px;
+	background: var(--text-on-accent);
+}
+
+/* ==========================================================================
+   Модалки полей
+   ========================================================================== */
+
+.meta-kb-field-modal {
+	width: 460px;
+	max-width: 90vw;
+}
+
+.meta-kb-modal-subtitle {
+	color: var(--text-muted);
+	font-size: var(--font-ui-smaller);
+	font-family: var(--font-monospace);
+	margin-bottom: 10px;
+}
+
+.meta-kb-modal-body {
+	display: flex;
+	flex-direction: column;
+	gap: 8px;
+}
+
+.meta-kb-input {
+	width: 100%;
+}
+
+textarea.meta-kb-input {
+	resize: vertical;
+}
+
+.meta-kb-modal-hint {
+	color: var(--text-faint);
+	font-size: var(--font-ui-smaller);
+}
+
+.meta-kb-modal-todo {
+	padding: 8px 10px;
+	border: 1px dashed var(--background-modifier-border-hover);
+	border-radius: var(--radius-s);
+	color: var(--text-muted);
+}
+
+.meta-kb-modal-row {
+	display: flex;
+	align-items: center;
+	gap: 10px;
+}
+
+.meta-kb-modal-row .meta-kb-switch {
+	margin-left: 0;
+}
+
+.meta-kb-modal-footer {
+	display: flex;
+	justify-content: flex-end;
+	gap: 8px;
+	margin-top: 12px;
+}
+
+.meta-kb-modal-message {
+	color: var(--text-error);
+	margin-top: 8px;
+	font-size: var(--font-ui-small);
+}
+
+/* --- Enum: список вариантов --- */
+.meta-kb-enum-list {
+	display: flex;
+	flex-direction: column;
+	gap: 2px;
+	max-height: 320px;
+	overflow: auto;
+	padding-right: 4px;
+}
+
+.meta-kb-enum-option {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	padding: 3px 6px;
+	border-radius: var(--radius-s);
+	cursor: pointer;
+}
+
+.meta-kb-enum-option:hover {
+	background: var(--background-modifier-hover);
+}
+
+.meta-kb-enum-raw {
+	color: var(--text-faint);
+	font-size: var(--font-ui-smaller);
+	font-family: var(--font-monospace);
+	margin-left: auto;
+}
+
+/* --- Текущее значение в TODO-модалках link/media --- */
+.meta-kb-current-values {
+	display: flex;
+	flex-direction: column;
+	gap: 2px;
+}
+
+.meta-kb-current-value {
+	font-family: var(--font-monospace);
+	font-size: var(--font-ui-smaller);
+	color: var(--text-muted);
+	word-break: break-all;
+}

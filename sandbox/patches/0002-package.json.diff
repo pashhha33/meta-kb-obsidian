@@ -1,0 +1,24 @@
+--- a/plugin/package.json
++++ b/plugin/package.json
+@@ -7,9 +7,19 @@
+     "dev": "node esbuild.config.mjs",
+     "build": "tsc -noEmit -skipLibCheck && node esbuild.config.mjs production"
+   },
++  "keywords": [
++    "obsidian",
++    "metamodel",
++    "knowledge-base"
++  ],
++  "author": "",
++  "license": "MIT",
+   "devDependencies": {
+-    "@types/node": "^16.11.6",
++    "@types/node": "^20.11.30",
++    "builtin-modules": "^3.3.0",
++    "esbuild": "^0.20.2",
+     "obsidian": "latest",
+-    "typescript": "4.7.4"
++    "tslib": "^2.6.2",
++    "typescript": "^5.4.5"
+   }
+ }
