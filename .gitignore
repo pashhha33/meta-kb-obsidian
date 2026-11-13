@@ -7,6 +7,9 @@ main.js
 *.js.map
 data.json
 
+# Tests temp
+plugin/tests/.tmp/
+
 # OS
 .DS_Store
 Thumbs.db
