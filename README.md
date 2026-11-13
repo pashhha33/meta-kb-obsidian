@@ -14,18 +14,20 @@
 
 | Контур | Что это | Где |
 |---|---|---|
-| **A. Семантика** | проза: «что означает и почему» | `metamodel/` (ontology, types, relations, properties, field-expansion, constraints, validation, …) |
-| **B. Контракт** | машинный вход для кода | `schema/metamodel.json` + `schema/metamodel.schema.json` |
+| **A. Семантика** | проза: «что означает и почему» | `metamodel/` |
+| **B. Контракт** | машинный вход для кода | `schema/metamodel.json` |
 | **C. Код** | плагин Obsidian + приёмка | `plugin/`, `fixtures/vault/`, `tests/` |
 
-Проза отвечает за смысл, контракт — за данные, код читает контракт. Сверка в обе стороны: `node tools/schema-check.mjs`.
+Проза отвечает за смысл, контракт — за данные, код читает контракт. Сверка в обе стороны — `tools/schema-check.mjs`.
 
 ## Ворота качества
 
 ```bash
-node tools/schema-check.mjs        # G2: валидность контракта + сверка с прозой
-cd plugin && npm run build         # G3: tsc + esbuild
-cd plugin && npm test              # G3: vitest (core + правила)
+node tools/check-state.mjs    # G1: PHASE.md ↔ iterations/
+node tools/schema-check.mjs   # G2: валидность контракта + сверка с прозой
+node tools/accept.mjs         # G4: приёмка на fixtures/vault
+cd plugin && npm run build    # G3: tsc + esbuild
+cd plugin && npm test         # G3: node:test (чистая логика)
 node tools/install-vault.mjs --vault "<путь>"   # доставка в vault + installed.json
 ```
 
