@@ -1,8 +1,9 @@
 import { App, PluginSettingTab, Setting } from "obsidian";
-import type MetaKBPlugin from "./main";
+import type { MetaKBPluginAPI } from "./plugin-types";
 
 /** Режим отображения created_at / updated_at — ontology.md §4.1. */
 export type DatetimeDisplay = "local" | "utc" | "fixed-offset";
+
 
 /**
  * Настройки плагина (AGENT-TASK.md: hideCoreProperties, datetimeDisplay,
@@ -22,6 +23,7 @@ export interface MetaKBSettings {
          */
         booleanWriteFalse: boolean;
 }
+
 
 export const DEFAULT_SETTINGS: MetaKBSettings = {
         hideCoreProperties: true,
@@ -106,9 +108,9 @@ export function formatDatetime(iso: unknown, settings: MetaKBSettings): string {
 
 /** Вкладка настроек плагина. */
 export class MetaKBSettingTab extends PluginSettingTab {
-        private readonly plugin: MetaKBPlugin;
+        private readonly plugin: MetaKBPluginAPI;
 
-        constructor(app: App, plugin: MetaKBPlugin) {
+        constructor(app: App, plugin: MetaKBPluginAPI) {
                 super(app, plugin);
                 this.plugin = plugin;
         }

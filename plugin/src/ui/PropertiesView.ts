@@ -1,5 +1,5 @@
 import { Events, ItemView, Notice, TFile, WorkspaceLeaf } from "obsidian";
-import type MetaKBPlugin from "../main";
+
 import {
         FieldGroup,
         ResolvedField,
@@ -10,6 +10,8 @@ import {
 import { formatDatetime } from "../settings";
 import { FieldRow } from "./FieldRow";
 import { openFieldModal } from "./modals/FieldModal";
+
+import type { MetaKBPluginAPI } from "../plugin-types";
 
 export const VIEW_TYPE_META_KB_PROPERTIES = "meta-kb-properties";
 
@@ -34,11 +36,11 @@ interface FrontmatterMap {
  * Обновляется при смене active file и изменении метаданных.
  */
 export class MetaKBPropertiesView extends ItemView {
-        private readonly plugin: MetaKBPlugin;
+        private readonly plugin: MetaKBPluginAPI;
         private renderTimer: number | null = null;
         private lastFile: TFile | null = null;
 
-        constructor(leaf: WorkspaceLeaf, plugin: MetaKBPlugin) {
+        constructor(leaf: WorkspaceLeaf, plugin: MetaKBPluginAPI) {
                 super(leaf);
                 this.plugin = plugin;
         }

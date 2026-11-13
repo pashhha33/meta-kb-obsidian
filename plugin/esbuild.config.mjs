@@ -33,6 +33,9 @@ const context = await esbuild.context({
 		...builtins,
 	],
 	format: "cjs",
+		footer: {
+		js: "module.exports = module.exports.default ?? module.exports;",
+	},
 	target: "es2018",
 	logLevel: "info",
 	sourcemap: prod ? false : "inline",
