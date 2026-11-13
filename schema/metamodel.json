@@ -1,0 +1,245 @@
+{
+  "$schema": "./metamodel.schema.json",
+  "schemaVersion": "1.0.0",
+  "meta": {
+    "title": "Metamodel contract (v1)",
+    "strategy": "variant C: prose = semantics, this file = machine input for the plugin",
+    "sourceDocs": "metamodel/*.md (DESIGN-META baseline v1)",
+    "note": "Definitions are keyed by *_key / type_value / rule_key. UUIDv7 ids are assigned at bootstrap when definitions are materialized as vault objects. The 10 metatypes have fixed ids and are created at bootstrap."
+  },
+
+  "layers": ["system", "classification", "content"],
+  "statuses": ["draft", "accepted", "deprecated"],
+
+  "metatypes": [
+    { "type_value": "type", "label": "Тип", "layer": "system", "id": "01a17d3b-4a00-747f-b063-cd02895e0d4f" },
+    { "type_value": "property", "label": "Свойство", "layer": "system", "id": "01a17d3b-4a01-73dd-8782-259a7e45663f" },
+    { "type_value": "relation", "label": "Отношение", "layer": "system", "id": "01a17d3b-4a02-7576-a16a-764c758b99be" },
+    { "type_value": "automation", "label": "Автоматизация", "layer": "system", "id": "01a17d3b-4a03-7afb-a20c-42cc54509281" },
+    { "type_value": "validation-rule", "label": "Правило валидации", "layer": "system", "id": "01a17d3b-4a04-7c70-99cd-5c01dddac8b4" },
+    { "type_value": "domain", "label": "Домен", "layer": "classification", "id": "01a17d3b-4a05-7b2a-a236-1d80c3f98974" },
+    { "type_value": "category", "label": "Категория", "layer": "classification", "id": "01a17d3b-4a06-7991-b54e-9352cde369c0" },
+    { "type_value": "facet", "label": "Фасет", "layer": "classification", "id": "01a17d3b-4a07-7494-b6d9-328c7108a3c0" },
+    { "type_value": "facet-value", "label": "Значение фасета", "layer": "classification", "id": "01a17d3b-4a08-7875-996d-c4af6179a249" },
+    { "type_value": "field-expansion", "label": "Правило развёртывания полей", "layer": "system", "id": "01a17d3b-4a32-716d-82a6-503fe47a47a1" }
+  ],
+
+  "valueTypes": [
+    "string", "text", "number", "boolean", "date", "datetime",
+    "enum", "list<string>", "list<enum>",
+    "link", "list<link>", "uuid", "media", "list<media>"
+  ],
+  "listValueTypes": ["list<string>", "list<enum>", "list<link>", "list<media>"],
+
+  "types": [
+    { "type_value": "note", "label": "Заметка", "extends": null, "group": "knowledge" },
+    { "type_value": "concept", "label": "Понятие", "extends": "note", "group": "knowledge" },
+    { "type_value": "claim", "label": "Утверждение", "extends": "note", "group": "knowledge" },
+    { "type_value": "question", "label": "Вопрос", "extends": "note", "group": "knowledge" },
+    { "type_value": "quote", "label": "Цитата", "extends": "note", "group": "knowledge" },
+
+    { "type_value": "person", "label": "Человек", "extends": null, "group": "context" },
+    { "type_value": "organization", "label": "Организация", "extends": null, "group": "context" },
+    { "type_value": "place", "label": "Место", "extends": null, "group": "context" },
+    { "type_value": "event", "label": "Событие", "extends": null, "group": "context" },
+    { "type_value": "project", "label": "Проект", "extends": null, "group": "context" },
+    { "type_value": "area", "label": "Область ответственности", "extends": null, "group": "context" },
+
+    { "type_value": "source", "label": "Источник", "extends": null, "group": "media" },
+    { "type_value": "book", "label": "Книга", "extends": "source", "group": "media" },
+    { "type_value": "article", "label": "Статья", "extends": "source", "group": "media" },
+    { "type_value": "video", "label": "Видео", "extends": "source", "group": "media" },
+    { "type_value": "link", "label": "Ссылка", "extends": "source", "group": "media" },
+    { "type_value": "film", "label": "Фильм", "extends": "source", "group": "media" },
+    { "type_value": "track", "label": "Трек", "extends": "source", "group": "media" },
+    { "type_value": "chapter", "label": "Глава", "extends": "source", "group": "media" },
+    { "type_value": "file", "label": "Файл", "extends": null, "group": "media" },
+    { "type_value": "image", "label": "Изображение", "extends": "file", "group": "media" },
+
+    { "type_value": "film-series", "label": "Серия фильмов", "extends": null, "group": "collection" },
+    { "type_value": "album", "label": "Альбом", "extends": null, "group": "collection" },
+    { "type_value": "gallery", "label": "Галерея", "extends": null, "group": "collection" },
+
+    { "type_value": "task", "label": "Задача", "extends": null, "group": "action" },
+    { "type_value": "habit", "label": "Привычка", "extends": "task", "group": "action" },
+    { "type_value": "goal", "label": "Цель", "extends": null, "group": "action" },
+    { "type_value": "decision", "label": "Решение", "extends": null, "group": "action" },
+    { "type_value": "meeting", "label": "Встреча", "extends": "event", "group": "action" }
+  ],
+
+  "universalProperties": [
+    { "property_key": "id", "label": "Идентификатор", "value_type": "uuid", "required": "always", "computed": true },
+    { "property_key": "type", "label": "Тип", "value_type": "string", "required": "always" },
+    { "property_key": "defined_by", "label": "Определён типом", "value_type": "uuid", "required": "always", "computed": true },
+    { "property_key": "title", "label": "Название", "value_type": "string", "required": "always" },
+    { "property_key": "aliases", "label": "Альтернативные имена", "value_type": "list<string>", "required": "always" },
+    { "property_key": "layer", "label": "Слой", "value_type": "enum", "required": "always", "enum_values": ["system", "classification", "content"] },
+    { "property_key": "status", "label": "Статус", "value_type": "enum", "required": "always", "enum_values": ["draft", "accepted", "deprecated"] },
+    { "property_key": "created_at", "label": "Создано", "value_type": "datetime", "required": "always", "computed": true },
+    { "property_key": "updated_at", "label": "Изменено", "value_type": "datetime", "required": "always", "computed": true }
+  ],
+
+  "properties": [
+    { "property_key": "type_value", "label": "Значение типа", "value_type": "string", "required": "always", "applies_to": ["type"] },
+
+    { "property_key": "cover", "label": "Обложка", "value_type": "media", "required": "never", "applies_to": ["source", "album", "film-series"] },
+    { "property_key": "poster", "label": "Постер", "value_type": "media", "required": "never", "applies_to": ["film", "video", "film-series"] },
+    { "property_key": "photo", "label": "Фотография", "value_type": "media", "required": "never", "applies_to": ["person", "place", "organization"] },
+    { "property_key": "artwork", "label": "Иллюстрации", "value_type": "list<media>", "required": "never", "applies_to": ["note", "source", "event", "place"] },
+    { "property_key": "attachment", "label": "Вложение", "value_type": "string", "required": "conditional", "applies_to": ["file", "source", "note", "image"], "note": "always для image (INV-24)" },
+    { "property_key": "roles", "label": "Роли изображения", "value_type": "list<enum>", "required": "never", "applies_to": ["image"], "enum_values": ["cover", "poster", "logo", "illustration", "art", "photo", "icon", "thumbnail"] },
+
+    { "property_key": "url", "label": "URL", "value_type": "string", "required": "never", "applies_to": ["source", "organization", "place", "project", "event"] },
+    { "property_key": "isbn", "label": "ISBN", "value_type": "string", "required": "never", "applies_to": ["book"] },
+    { "property_key": "published", "label": "Дата публикации", "value_type": "date", "required": "never", "applies_to": ["source", "album"] },
+    { "property_key": "year", "label": "Год", "value_type": "number", "required": "never", "applies_to": ["source", "album", "film-series"] },
+    { "property_key": "date", "label": "Дата", "value_type": "date", "required": "never", "applies_to": ["event", "decision"] },
+    { "property_key": "due", "label": "Срок", "value_type": "date", "required": "never", "applies_to": ["task", "project", "goal"] },
+    { "property_key": "completed", "label": "Выполнено", "value_type": "date", "required": "never", "applies_to": ["task", "project", "goal"] },
+
+    { "property_key": "duration", "label": "Длительность", "value_type": "number", "required": "never", "applies_to": ["film", "video", "track", "chapter", "event", "book"], "note": "минуты" },
+    { "property_key": "position", "label": "Позиция", "value_type": "number", "required": "never", "applies_to": ["chapter", "film", "track", "image"], "note": "с 1; дыры допустимы (C-CH)" },
+    { "property_key": "page", "label": "Страница", "value_type": "string", "required": "never", "applies_to": ["quote", "chapter", "note"] },
+    { "property_key": "page-count", "label": "Объём в страницах", "value_type": "number", "required": "never", "applies_to": ["book", "chapter"] },
+    { "property_key": "char-count", "label": "Знаки", "value_type": "number", "required": "never", "applies_to": ["chapter", "book"], "computed": true },
+    { "property_key": "author-sheets", "label": "Авторские листы", "value_type": "number", "required": "never", "applies_to": ["book"], "computed": true, "note": "char-count / authorSheetChars" },
+
+    { "property_key": "box-office-domestic", "label": "Внутренние сборы", "value_type": "number", "required": "never", "applies_to": ["film"] },
+    { "property_key": "box-office-worldwide", "label": "Мировые сборы", "value_type": "number", "required": "never", "applies_to": ["film"] },
+
+    { "property_key": "occupation", "label": "Профессия", "value_type": "list<enum>", "required": "never", "applies_to": ["person"], "enum_values": ["developer", "designer", "researcher", "teacher", "writer", "manager", "actor", "director", "producer", "screenwriter", "composer", "musician", "singer", "photographer", "artist", "animator", "journalist", "host", "voice-actor", "politician", "ruler", "military", "scientist", "philosopher", "religious-figure", "explorer", "entrepreneur", "athlete", "activist"], "trigger": true },
+    { "property_key": "specialization", "label": "Специализация", "value_type": "list<string>", "required": "never", "applies_to": ["person"] },
+    { "property_key": "format", "label": "Формат издания", "value_type": "enum", "required": "never", "applies_to": ["book"], "enum_values": ["ebook", "paper", "audiobook"], "trigger": true },
+    { "property_key": "creation-method", "label": "Способ создания", "value_type": "enum", "required": "never", "applies_to": ["image"], "enum_values": ["ai-generated", "photograph", "scan", "illustration"], "trigger": true },
+    { "property_key": "model", "label": "Модель", "value_type": "string", "required": "never", "applies_to": ["image"] },
+    { "property_key": "prompt", "label": "Запрос", "value_type": "text", "required": "never", "applies_to": ["image"] },
+    { "property_key": "seed", "label": "Сид", "value_type": "number", "required": "never", "applies_to": ["image"] },
+
+    { "property_key": "birth-date", "label": "Дата рождения", "value_type": "date", "required": "never", "applies_to": ["person"] },
+    { "property_key": "death-date", "label": "Дата смерти", "value_type": "date", "required": "never", "applies_to": ["person"] },
+    { "property_key": "birth-place", "label": "Место рождения", "value_type": "link", "required": "never", "applies_to": ["person"], "note": "→ place" },
+    { "property_key": "death-place", "label": "Место смерти", "value_type": "link", "required": "never", "applies_to": ["person"], "note": "→ place" },
+    { "property_key": "citizenship", "label": "Гражданство", "value_type": "list<string>", "required": "never", "applies_to": ["person"] },
+    { "property_key": "field-of-work", "label": "Область деятельности", "value_type": "list<string>", "required": "never", "applies_to": ["person"] },
+
+    { "property_key": "office", "label": "Должность / пост", "value_type": "list<string>", "required": "never", "applies_to": ["person"] },
+    { "property_key": "party", "label": "Партия", "value_type": "list<string>", "required": "never", "applies_to": ["person"] },
+    { "property_key": "military-rank", "label": "Воинское звание", "value_type": "string", "required": "never", "applies_to": ["person"] },
+    { "property_key": "sport", "label": "Вид спорта", "value_type": "list<string>", "required": "never", "applies_to": ["person"] },
+    { "property_key": "instrument", "label": "Инструмент", "value_type": "list<string>", "required": "never", "applies_to": ["person"] },
+    { "property_key": "genre", "label": "Жанр", "value_type": "list<string>", "required": "never", "applies_to": ["person"] }
+  ],
+
+  "relations": [
+    { "relation_key": "parent", "label": "Родительская категория", "source_type": ["category"], "target_type": ["category"], "cardinality": "0..1", "classification": true },
+    { "relation_key": "category-domain", "label": "Домен категории", "source_type": ["category"], "target_type": ["domain"], "cardinality": "1..1", "classification": true },
+    { "relation_key": "object-category", "label": "Категория объекта", "source_type": ["*"], "target_type": ["category"], "cardinality": "0..*", "classification": true },
+    { "relation_key": "object-facet-value", "label": "Значение фасета", "source_type": ["*"], "target_type": ["facet-value"], "cardinality": "0..*", "classification": true },
+
+    { "relation_key": "author", "label": "Автор", "source_type": ["source", "quote"], "target_type": ["person", "organization"], "cardinality": "0..*", "inverse_label": "Работы автора" },
+    { "relation_key": "about", "label": "О чём", "source_type": ["*"], "target_type": ["*"], "cardinality": "0..*", "inverse_label": "Упоминается в" },
+    { "relation_key": "part-of", "label": "Часть целого", "source_type": ["*"], "target_type": ["*"], "cardinality": "0..*", "inverse_label": "Составляющие" },
+    { "relation_key": "participant", "label": "Участник", "source_type": ["event", "task", "project"], "target_type": ["person", "organization"], "cardinality": "0..*", "inverse_label": "Участвует в" },
+    { "relation_key": "derived-from", "label": "Произведено из", "source_type": ["note", "image", "decision"], "target_type": ["source", "file", "note"], "cardinality": "0..*", "inverse_label": "Послужило основой для" },
+    { "relation_key": "supports", "label": "Поддерживает", "source_type": ["note", "decision", "source"], "target_type": ["claim", "question", "decision", "goal"], "cardinality": "0..*", "inverse_label": "Подтверждается" },
+    { "relation_key": "blocks", "label": "Блокирует", "source_type": ["task", "goal", "decision", "project"], "target_type": ["task", "goal", "decision", "project"], "cardinality": "0..*", "inverse_label": "Заблокировано" },
+    { "relation_key": "located-in", "label": "Находится в", "source_type": ["event", "place", "person", "organization"], "target_type": ["place"], "cardinality": "0..*", "inverse_label": "Расположены здесь" },
+    { "relation_key": "member-of", "label": "Состоит в", "source_type": ["person", "organization"], "target_type": ["organization"], "cardinality": "0..*", "inverse_label": "Участники" },
+    { "relation_key": "references", "label": "Ссылается на", "source_type": ["note", "source", "file", "organization"], "target_type": ["*"], "cardinality": "0..*", "inverse_label": "Упомянуто в" },
+    { "relation_key": "contradicts", "label": "Противоречит", "source_type": ["claim", "decision"], "target_type": ["claim", "decision"], "cardinality": "0..*", "inverse_label": "симметрично" },
+    { "relation_key": "chapter-of", "label": "Глава книги", "source_type": ["chapter"], "target_type": ["book"], "cardinality": "1..1", "inverse_label": "Главы" },
+    { "relation_key": "part-of-collection", "label": "Элемент коллекции", "source_type": ["film", "track", "image"], "target_type": ["film-series", "album", "gallery"], "cardinality": "0..*", "inverse_label": "Элементы коллекции" },
+    { "relation_key": "narrator", "label": "Чтец", "source_type": ["source"], "target_type": ["person"], "cardinality": "0..*", "inverse_label": "Озвученные работы" },
+    { "relation_key": "director", "label": "Режиссёр", "source_type": ["film", "video"], "target_type": ["person"], "cardinality": "0..*", "inverse_label": "Постановки" },
+    { "relation_key": "actor", "label": "Актёр", "source_type": ["film", "video"], "target_type": ["person"], "cardinality": "0..*", "inverse_label": "Роли" }
+  ],
+
+  "fieldExpansion": [
+    { "id": "FE-01", "applies_to_type": ["person"], "trigger_property": "occupation", "trigger_values": ["developer", "designer", "researcher", "teacher", "writer", "scientist", "philosopher", "journalist", "artist", "composer"], "adds_properties": ["specialization", "field-of-work"], "adds_relations": [], "mode": "union" },
+    { "id": "FE-02", "applies_to_type": ["person"], "trigger_property": "occupation", "trigger_values": ["developer", "researcher", "teacher", "manager", "entrepreneur", "athlete"], "adds_properties": [], "adds_relations": ["member-of"], "mode": "union" },
+    { "id": "FE-03", "applies_to_type": ["person"], "trigger_property": "occupation", "trigger_values": ["politician", "ruler"], "adds_properties": ["office", "party"], "adds_relations": [], "mode": "union" },
+    { "id": "FE-04", "applies_to_type": ["person"], "trigger_property": "occupation", "trigger_values": ["military"], "adds_properties": ["military-rank"], "adds_relations": [], "mode": "union" },
+    { "id": "FE-05", "applies_to_type": ["person"], "trigger_property": "occupation", "trigger_values": ["athlete"], "adds_properties": ["sport"], "adds_relations": [], "mode": "union" },
+    { "id": "FE-06", "applies_to_type": ["person"], "trigger_property": "occupation", "trigger_values": ["musician", "singer", "composer"], "adds_properties": ["instrument", "genre"], "adds_relations": [], "mode": "union" },
+    { "id": "FE-07", "applies_to_type": ["book"], "trigger_property": "format", "trigger_values": ["paper"], "adds_properties": ["page-count"], "adds_relations": [], "mode": "union" },
+    { "id": "FE-08", "applies_to_type": ["image"], "trigger_property": "creation-method", "trigger_values": ["ai-generated"], "adds_properties": ["model", "prompt", "seed"], "adds_relations": [], "mode": "union" },
+    { "id": "FE-09", "applies_to_type": ["book"], "trigger_property": "format", "trigger_values": ["ebook"], "adds_properties": ["attachment", "url"], "adds_relations": [], "mode": "union" },
+    { "id": "FE-10", "applies_to_type": ["book"], "trigger_property": "format", "trigger_values": ["audiobook"], "adds_properties": ["attachment", "duration"], "adds_relations": [], "mode": "union" }
+  ],
+
+  "validationRules": [
+    { "rule_key": "unique-id", "severity": "error", "checks": ["INV-02"], "applies_to": ["*"] },
+    { "rule_key": "filename-matches-object", "severity": "error", "checks": ["INV-05", "INV-06"], "applies_to": ["*"] },
+    { "rule_key": "aliases-first-equals-title", "severity": "error", "checks": ["INV-08"], "applies_to": ["*"] },
+    { "rule_key": "media-target-is-image", "severity": "error", "checks": ["INV-23"], "applies_to": ["*"] },
+    { "rule_key": "image-has-attachment", "severity": "error", "checks": ["INV-24", "C-IMG"], "applies_to": ["image"] },
+    { "rule_key": "image-attachment-unique", "severity": "error", "checks": ["C-IMG-05"], "applies_to": ["image"] },
+    { "rule_key": "extends-acyclic", "severity": "error", "checks": ["INV-18"], "applies_to": ["type"] },
+    { "rule_key": "defined-by-consistent", "severity": "error", "checks": ["INV-12", "INV-13"], "applies_to": ["*"] },
+    { "rule_key": "trigger-values-subset", "severity": "error", "checks": ["INV-25"], "applies_to": ["field-expansion"] },
+    { "rule_key": "expansion-keys-exist", "severity": "error", "checks": ["INV-25"], "applies_to": ["field-expansion"] },
+    { "rule_key": "link-target-exists", "severity": "error", "checks": ["INV-15"], "applies_to": ["*"] },
+    { "rule_key": "unique-machine-keys", "severity": "error", "checks": ["INV-13", "INV-16", "INV-17"], "applies_to": ["definition"] },
+    { "rule_key": "relation-acyclic", "severity": "error", "checks": ["relations"], "applies_to": ["*"] },
+    { "rule_key": "relation-endpoints-match", "severity": "error", "checks": ["INV-17"], "applies_to": ["*"] },
+    { "rule_key": "relation-cardinality-form", "severity": "error", "checks": ["INV-17"], "applies_to": ["*"] },
+    { "rule_key": "facet-target-is-facet", "severity": "error", "checks": ["INV-15"], "applies_to": ["facet-value"] },
+    { "rule_key": "chapter-position-unique", "severity": "error", "checks": ["C-CH-05"], "applies_to": ["chapter"] },
+    { "rule_key": "chapter-of-required", "severity": "error", "checks": ["C-CH-05"], "applies_to": ["chapter"] },
+
+    { "rule_key": "inactive-field-value", "severity": "warning", "checks": ["INV-27"], "applies_to": ["*"] },
+    { "rule_key": "extends-depth", "severity": "warning", "checks": ["INV-18"], "applies_to": ["type"] },
+    { "rule_key": "deprecated-link-target", "severity": "warning", "checks": ["INV-10"], "applies_to": ["*"] },
+    { "rule_key": "collection-element-consistent", "severity": "warning", "checks": ["DL-025"], "applies_to": ["film", "track", "image"] },
+    { "rule_key": "orphan-attachment", "severity": "warning", "checks": ["C-IMG"], "applies_to": ["*"] }
+  ],
+
+  "settings": [
+    { "key": "datetimeDisplay", "type": "enum", "default": "local", "values": ["local", "utc", "fixed-offset"] },
+    { "key": "datetimeOffset", "type": "string", "default": "+00:00" },
+    { "key": "hideCoreProperties", "type": "boolean", "default": true },
+    { "key": "booleanWriteFalse", "type": "boolean", "default": true },
+    { "key": "bootstrapOffer", "type": "boolean", "default": true },
+    { "key": "suggestWrapImages", "type": "boolean", "default": true },
+    { "key": "authorSheetChars", "type": "number", "default": 40000 },
+    { "key": "strictValidation", "type": "boolean", "default": false },
+    { "key": "propertiesWidgetLocation", "type": "enum", "default": "sidebar", "values": ["sidebar"] }
+  ],
+
+  "enums": {
+    "occupation": [
+      { "value": "developer", "label": "Разработчик" },
+      { "value": "designer", "label": "Дизайнер" },
+      { "value": "researcher", "label": "Исследователь" },
+      { "value": "teacher", "label": "Преподаватель" },
+      { "value": "writer", "label": "Писатель" },
+      { "value": "manager", "label": "Менеджер" },
+      { "value": "actor", "label": "Актёр" },
+      { "value": "director", "label": "Режиссёр" },
+      { "value": "producer", "label": "Продюсер" },
+      { "value": "screenwriter", "label": "Сценарист" },
+      { "value": "composer", "label": "Композитор" },
+      { "value": "musician", "label": "Музыкант" },
+      { "value": "singer", "label": "Певец" },
+      { "value": "photographer", "label": "Фотограф" },
+      { "value": "artist", "label": "Художник" },
+      { "value": "animator", "label": "Аниматор" },
+      { "value": "journalist", "label": "Журналист" },
+      { "value": "host", "label": "Ведущий" },
+      { "value": "voice-actor", "label": "Актёр озвучки" },
+      { "value": "politician", "label": "Политик" },
+      { "value": "ruler", "label": "Правитель" },
+      { "value": "military", "label": "Военный" },
+      { "value": "scientist", "label": "Учёный" },
+      { "value": "philosopher", "label": "Философ" },
+      { "value": "religious-figure", "label": "Религиозный деятель" },
+      { "value": "explorer", "label": "Путешественник" },
+      { "value": "entrepreneur", "label": "Предприниматель" },
+      { "value": "athlete", "label": "Спортсмен" },
+      { "value": "activist", "label": "Общественный деятель" }
+    ],
+    "imageRoles": ["cover", "poster", "logo", "illustration", "art", "photo", "icon", "thumbnail"],
+    "bookFormat": ["ebook", "paper", "audiobook"],
+    "creationMethod": ["ai-generated", "photograph", "scan", "illustration"]
+  }
+}

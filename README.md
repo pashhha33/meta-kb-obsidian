@@ -2,24 +2,31 @@
 
 Метамодель личной базы знаний + плагин Obsidian для её поддержки.
 
-## Репозиторий
-**https://github.com/pashhha33/meta-kb-obsidian**
+**Это единственный канон проекта.** Все прочие каталоги под `Документы/Метамодель/` устарели и помечены как `DEPRECATED`.
 
 ## Быстрый старт
 
-1. Откройте `PHASE.md` — там всегда актуальное состояние.
-2. Скажите Чату: **«прочитай репо»**
-3. Дальше работайте по инструкциям в `INSTRUCTIONS/`.
+1. `PHASE.md` — актуальное состояние: фаза, итерация, следующее действие.
+2. `WORKFLOW.md` — процесс v2 (три контура, четыре ворота, цикл итерации).
+3. `INSTRUCTIONS/` — правила ролей: чат / агент / пользователь.
 
-## Структура
+## Три контура (процесс v2)
 
-- `INSTRUCTIONS/` — инструкции для Чата, Агента и Пользователя
-- `metamodel/` — живая метамодель
-- `plugin/` — код плагина Obsidian
-- `decisions/` — Architecture Decision Records
-- `iterations/` — история итераций
-- `sandbox/` — сюда Агент кладёт артефакты (пользователь переносит вручную)
-- `REFERENCE/` — опциональная стартовая метамодель
+| Контур | Что это | Где |
+|---|---|---|
+| **A. Семантика** | проза: «что означает и почему» | `metamodel/` (ontology, types, relations, properties, field-expansion, constraints, validation, …) |
+| **B. Контракт** | машинный вход для кода | `schema/metamodel.json` + `schema/metamodel.schema.json` |
+| **C. Код** | плагин Obsidian + приёмка | `plugin/`, `fixtures/vault/`, `tests/` |
 
-## Главное правило
-Общение Чат ↔ Агент происходит **только через этот репозиторий**.
+Проза отвечает за смысл, контракт — за данные, код читает контракт. Сверка в обе стороны: `node tools/schema-check.mjs`.
+
+## Ворота качества
+
+```bash
+node tools/schema-check.mjs        # G2: валидность контракта + сверка с прозой
+cd plugin && npm run build         # G3: tsc + esbuild
+cd plugin && npm test              # G3: vitest (core + правила)
+node tools/install-vault.mjs --vault "<путь>"   # доставка в vault + installed.json
+```
+
+Подробно — `WORKFLOW.md`.
