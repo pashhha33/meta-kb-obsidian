@@ -26,9 +26,11 @@ import {
 	buildMediaPickItems,
 	isMediaListValueType,
 	isMediaValueType,
+	resolveMediaRef,
 } from "../core/media";
 import { thumbnailAspectRatio } from "../core/thumbnails";
 import { FieldRow } from "./FieldRow";
+import type { MediaThumb } from "./FieldRow";
 import { openFieldModal } from "./modals/FieldModal";
 import { ImageFilePickerModal } from "./modals/ImageFilePickerModal";
 import { MediaPickerModal } from "./modals/MediaPickerModal";
@@ -312,6 +314,8 @@ export class MetaKBPropertiesView extends ItemView {
 				absent: !row.present && !field.readOnly,
 				formatDatetime: (iso) => formatDatetime(iso, this.plugin.settings),
 				enumValueLabelFn: (raw) => enumValueLabel(field.key, raw),
+				// DESIGN §6: значение `media` показывается миниатюрой обёртки.
+				mediaThumb: (linkpath) => this.mediaThumbFor(linkpath),
 			},
 			{
 				onEdit: () => this.openFieldEditor(field, rawValue, file),
@@ -397,6 +401,19 @@ export class MetaKBPropertiesView extends ItemView {
 					attachment === "" ? undefined : attachment,
 				),
 		}).open();
+	}
+
+	/**
+	 * Миниатюра для значения `media` (DESIGN §6): ссылка → файл вложения.
+	 * null — цель не резолвится или файла нет; строка покажется текстом.
+	 */
+	private mediaThumbFor(linkpath: string): MediaThumb | null {
+		const ref = resolveMediaRef(this.plugin.getRegistry().all(), linkpath);
+		if (!ref) {
+			return null;
+		}
+		const url = this.plugin.resourcePathFor(ref.attachment);
+		return url ? { url, title: ref.title } : null;
 	}
 
 	/**

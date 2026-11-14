@@ -146,6 +146,14 @@ test("styles.css: картинка миниатюры квадратная по 
 	assert.equal(value(img, "object-fit"), "cover", "нужен object-fit: cover");
 });
 
+test("styles.css: миниатюра в строке свойств — 24px (DESIGN §6)", () => {
+	const thumb = block(".meta-kb-media-thumb");
+	assert.ok(thumb, "нет правила .meta-kb-media-thumb");
+	assert.equal(value(thumb, "width"), "24px", "DESIGN §6: 24 px");
+	assert.equal(value(thumb, "height"), "24px", "DESIGN §6: 24 px");
+	assert.equal(value(thumb, "object-fit"), "cover", "иначе картинка исказится");
+});
+
 test("styles.css: каждая кастомная кнопка переопределяет height и background-color", () => {
 	const classes = buttonClasses();
 	// Если список опустеет, тест перестанет что-либо проверять.

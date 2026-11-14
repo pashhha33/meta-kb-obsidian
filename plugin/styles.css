@@ -170,6 +170,42 @@ body.meta-kb-hide-core-properties .metadata-properties-heading {
 	text-decoration: underline;
 }
 
+/* --- Значение media в строке свойств (DESIGN.md §6) --- */
+.meta-kb-field-value.meta-kb-media-row {
+	display: flex;
+	align-items: center;
+	justify-content: flex-end;
+	gap: 6px;
+	min-width: 0;
+}
+
+.meta-kb-media-thumb {
+	flex: none;
+	width: 24px;
+	height: 24px;
+	object-fit: cover;
+	border-radius: var(--radius-s);
+}
+
+.meta-kb-media-title {
+	min-width: 0;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.meta-kb-media-more {
+	flex: none;
+	color: var(--text-muted);
+	font-size: var(--font-ui-smaller);
+}
+
+/* Подчёркивание ссылки на миниатюре смотрелось бы как дефект — оставляем
+   только курсор (родитель `.is-link` даёт и то, и другое). */
+.meta-kb-field-value.meta-kb-media-row.is-link:hover {
+	text-decoration: none;
+}
+
 .meta-kb-field-actions {
 	flex-shrink: 0;
 	display: flex;

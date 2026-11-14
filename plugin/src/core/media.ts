@@ -95,8 +95,51 @@ export function buildMediaPickItems(opts: {
 export function mediaItemToCandidate(item: MediaPickItem): SuggestCandidate {
 	return {
 		id: item.id ?? item.value,
-		title: item.title,
 		type: "image",
+		title: item.title,
 		linkpath: item.value,
 	};
+}
+
+/** Обёртка `image`, на которую указывает значение `media`. */
+export interface MediaRef {
+	id: string;
+	title: string;
+	/** Нормализованный путь к файлу-картинке. */
+	attachment: string;
+}
+
+/**
+ * Ссылка `{type}_{id}` → обёртка `image` с валидным вложением.
+ *
+ * `null` — цель не найдена, это не `image` или у обёртки нет картинки
+ * (нарушение INV-24). Строка свойств в этом случае откатывается к тексту,
+ * а не показывает битую миниатюру.
+ */
+export function resolveMediaRef(
+	records: AttachmentRecord[],
+	linkpath: string,
+): MediaRef | null {
+	const path = linkpath.trim();
+	if (path === "") {
+		return null;
+	}
+	for (const record of records) {
+		if (record.type !== "image" || record.id === "") {
+			continue;
+		}
+		if (`${record.type}_${record.id}` !== path) {
+			continue;
+		}
+		const attachment = normalizeAttachmentPath(record.props?.["attachment"]);
+		if (attachment === "" || !isImagePath(attachment)) {
+			return null;
+		}
+		return {
+			id: record.id,
+			title: record.title || attachment,
+			attachment,
+		};
+	}
+	return null;
 }

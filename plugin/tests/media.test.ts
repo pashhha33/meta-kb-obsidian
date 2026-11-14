@@ -6,6 +6,7 @@ import {
 	isMediaListValueType,
 	isMediaValueType,
 	mediaItemToCandidate,
+	resolveMediaRef,
 } from "../src/core/media";
 import { candidatesToValue } from "../src/core/suggest";
 import { resolveField } from "../src/core/metamodel";
@@ -124,4 +125,27 @@ test("mediaItemToCandidate: ссылка на обёртку, а не на фа�
 	assert.deepEqual(candidatesToValue([candidate], true), [
 		"[[image_img1|Обложка]]",
 	]);
+});
+
+test("resolveMediaRef: ссылка → обёртка с вложением (DESIGN §6)", () => {
+	const ref = resolveMediaRef(records, "image_img1");
+	assert.deepEqual(ref, {
+		id: "img1",
+		title: "Обложка",
+		attachment: "img/cover.png",
+	});
+});
+
+test("resolveMediaRef: битые случаи не ломают строку свойств", () => {
+	// Цели нет в Registry — значение покажется текстом, а не пустой картинкой.
+	assert.equal(resolveMediaRef(records, "image_nope"), null);
+	// Не image (книга) — миниатюры быть не может.
+	assert.equal(resolveMediaRef(records, "book_b1"), null);
+	// Обёртка без attachment — нарушение INV-24.
+	assert.equal(resolveMediaRef(records, "image_img3"), null);
+	// Имя файла вместо ссылки и пустая строка.
+	assert.equal(resolveMediaRef(records, "img/cover.png"), null);
+	assert.equal(resolveMediaRef(records, "  "), null);
+	// Не-image тип с тем же id не подменяет результат.
+	assert.equal(resolveMediaRef([{ id: "img1", type: "note", title: "x", props: { attachment: "img/cover.png" } }], "image_img1"), null);
 });

@@ -1,6 +1,14 @@
 import { setIcon } from "obsidian";
 import { FieldValueType, VALUE_TYPE_ICONS, parseCanonicalLink } from "../labels";
 
+/** Подпись и превью для значения `media` (DESIGN.md §6). */
+export interface MediaThumb {
+	/** URL файла-картинки (getResourcePath). */
+	url: string;
+	/** Название обёртки. */
+	title: string;
+}
+
 /** Данные для отрисовки одной строки поля. */
 export interface FieldRowModel {
 	key: string;
@@ -17,6 +25,12 @@ export interface FieldRowModel {
 	formatDatetime: (iso: unknown) => string;
 	/** Подпись значения enum (из контракта). */
 	enumValueLabelFn: (raw: string) => string;
+	/**
+	 * Превью для значения `media` / `list<media>`: ссылка → миниатюра.
+	 * null — цель не резолвится (битая ссылка, нет картинки): строка тогда
+	 * показывается текстом, а не пустым местом.
+	 */
+	mediaThumb?: (linkpath: string) => MediaThumb | null;
 }
 
 /** Действия строки. */
@@ -138,7 +152,11 @@ export class FieldRow {
 				valueEl.addClass("is-empty");
 				return;
 			}
-			if (model.valueType === "list<link>" || model.valueType === "list<media>") {
+			if (model.valueType === "list<media>") {
+				this.renderMediaList(valueEl, v, model, actions);
+				return;
+			}
+			if (model.valueType === "list<link>") {
 				// до 2 title + «+N» (DESIGN.md §7.5.1.6)
 				const titles = v.map((item) => {
 					const parsed =
@@ -185,9 +203,24 @@ export class FieldRow {
 				case "date":
 					valueEl.setText(v);
 					return;
-				case "link":
-				case "media": {
+				case "link": {
 					const parsed = parseCanonicalLink(v);
+					valueEl.setText(parsed ? parsed.alias : v);
+					this.makeLinkOpenable(valueEl, v, actions);
+					return;
+				}
+				case "media": {
+					// DESIGN.md §6: миниатюра 24px + название обёртки.
+					const parsed = parseCanonicalLink(v);
+					const thumb = parsed
+						? (model.mediaThumb?.(parsed.linkpath) ?? null)
+						: null;
+					if (thumb) {
+						this.renderMediaThumb(valueEl, thumb);
+						this.makeLinkOpenable(valueEl, v, actions);
+						return;
+					}
+					// Битая ссылка или обёртка без картинки — текстом, как раньше.
 					valueEl.setText(parsed ? parsed.alias : v);
 					this.makeLinkOpenable(valueEl, v, actions);
 					return;
@@ -205,6 +238,71 @@ export class FieldRow {
 		}
 
 		valueEl.setText(String(v));
+	}
+
+	/** Миниатюра + название обёртки для одиночного `media` (DESIGN.md §6). */
+	private renderMediaThumb(el: HTMLElement, thumb: MediaThumb): void {
+		el.addClass("meta-kb-media-row");
+		const img = el.createEl("img", { cls: "meta-kb-media-thumb" });
+		img.src = thumb.url;
+		img.alt = thumb.title;
+		el.createEl("span", { cls: "meta-kb-media-title", text: thumb.title });
+	}
+
+	/**
+	 * Ряд до трёх миниатюр + «+N» для `list<media>` (DESIGN.md §6).
+	 *
+	 * Если не резолвится ни одна ссылка (например, все обёртки удалены), строка
+	 * откатывается к текстовому перечислению: пустой ряд скрыл бы проблему.
+	 */
+	private renderMediaList(
+		el: HTMLElement,
+		values: unknown[],
+		model: FieldRowModel,
+		actions: FieldRowActions,
+	): void {
+		const raws = values.filter((item): item is string => typeof item === "string");
+		const titles = raws.map((raw) => {
+			const parsed = parseCanonicalLink(raw);
+			return parsed ? parsed.alias : raw;
+		});
+		const thumbs: MediaThumb[] = [];
+		for (const raw of raws) {
+			const parsed = parseCanonicalLink(raw);
+			const thumb = parsed
+				? (model.mediaThumb?.(parsed.linkpath) ?? null)
+				: null;
+			if (thumb) {
+				thumbs.push(thumb);
+			}
+		}
+
+		if (thumbs.length === 0) {
+			const head = titles.slice(0, 2).join(", ");
+			el.setText(titles.length > 2 ? `${head} +${titles.length - 2}` : head);
+			el.setAttribute("title", titles.join("\n"));
+			if (raws[0]) {
+				this.makeLinkOpenable(el, raws[0], actions);
+			}
+			return;
+		}
+
+		el.addClass("meta-kb-media-row");
+		for (const thumb of thumbs.slice(0, 3)) {
+			const img = el.createEl("img", { cls: "meta-kb-media-thumb" });
+			img.src = thumb.url;
+			img.alt = thumb.title;
+		}
+		if (titles.length > 3) {
+			el.createEl("span", {
+				cls: "meta-kb-media-more",
+				text: `+${titles.length - 3}`,
+			});
+		}
+		el.setAttribute("title", titles.join("\n"));
+		if (raws[0]) {
+			this.makeLinkOpenable(el, raws[0], actions);
+		}
 	}
 
 	/** Клик по значению-ссылке открывает цель (если резолвится). */
