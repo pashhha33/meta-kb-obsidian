@@ -27,6 +27,12 @@ import {
 } from "./core/attachment";
 import type { SuggestCandidate } from "./core/suggest";
 import {
+	buildPastedImagePath,
+	clipboardImageExtension,
+	guessAttachmentFolder,
+	resolveAttachmentFolder,
+} from "./core/clipboard";
+import {
 	clampThumbnailSize,
 	normalizeThumbnailAspect,
 	thumbnailAspectRatio,
@@ -133,6 +139,15 @@ export default class MetaKBPlugin extends Plugin {
 			id: "create-image-wrapper",
 			name: "Create image wrapper",
 			callback: () => this.openImageWrapperPicker(),
+		});
+
+		// C-IMG-04 п.2: источник — изображение из буфера обмена.
+		this.addCommand({
+			id: "create-image-wrapper-from-clipboard",
+			name: "Create image wrapper from clipboard",
+			callback: () => {
+				void this.pasteImageWrapper();
+			},
 		});
 
 		this.addCommand({
@@ -378,6 +393,9 @@ export default class MetaKBPlugin extends Plugin {
 			...this.thumbnailOptions(),
 			onSubmit: ({ title, attachment }) =>
 				this.createImageWrapper(title, attachment),
+			onFromClipboard: () => {
+				void this.pasteImageWrapper();
+			},
 			onOpenExisting: (id) => this.openObjectById(id),
 		}).open();
 	}
@@ -463,6 +481,146 @@ export default class MetaKBPlugin extends Plugin {
 			type: "image",
 			linkpath: `image_${id}`,
 		};
+	}
+
+	// --- Вставка изображения из буфера обмена (C-IMG-04 п.2) ---------------------
+
+	/**
+	 * Изображение из системного буфера → файл в папке вложений → обёртка.
+	 *
+	 * Сначала пробуем Electron (`clipboard.readImage`) — только он отдаёт
+	 * картинку, скопированную в другой программе. Если он недоступен (мобильные
+	 * платформы), остаётся Web Clipboard API, которому нужно разрешение.
+	 */
+	private async readClipboardImage(): Promise<{
+		bytes: ArrayBuffer;
+		mime: string;
+	} | null> {
+		const req = (window as unknown as { require?: (id: string) => unknown })
+			.require;
+		if (typeof req === "function") {
+			try {
+				const electron = req("electron") as {
+					clipboard?: {
+						readImage(): { isEmpty(): boolean; toPNG(): Uint8Array };
+					};
+				};
+				const image = electron?.clipboard?.readImage();
+				if (image && !image.isEmpty()) {
+					const png = image.toPNG();
+					return {
+						bytes: png.buffer.slice(
+							png.byteOffset,
+							png.byteOffset + png.byteLength,
+						) as ArrayBuffer,
+						mime: "image/png",
+					};
+				}
+			} catch (err) {
+				console.warn("Meta KB: Electron clipboard недоступен", err);
+			}
+		}
+
+		try {
+			const clipboard = navigator.clipboard as unknown as {
+				read?: () => Promise<ClipboardItem[]>;
+			};
+			const items = await clipboard?.read?.();
+			for (const item of items ?? []) {
+				const type = item.types.find((candidate) =>
+					candidate.startsWith("image/"),
+				);
+				if (!type) {
+					continue;
+				}
+				const blob = await item.getType(type);
+				return { bytes: await blob.arrayBuffer(), mime: type };
+			}
+		} catch (err) {
+			console.warn("Meta KB: navigator.clipboard.read() недоступен", err);
+		}
+		return null;
+	}
+
+	/**
+	 * Папка вложений: настройка Obsidian `attachmentFolderPath`, а если её
+	 * прочитать не удалось — самая населённая папка с изображениями.
+	 */
+	private attachmentFolder(): string {
+		const vault = this.app.vault as unknown as {
+			getConfig?: (key: string) => unknown;
+		};
+		let config: unknown;
+		try {
+			config = vault.getConfig?.("attachmentFolderPath");
+		} catch {
+			config = undefined;
+		}
+		const activeFolder = this.app.workspace.getActiveFile()?.parent?.path ?? "";
+		if (config === undefined || config === null) {
+			return guessAttachmentFolder(this.listImagePaths());
+		}
+		return resolveAttachmentFolder(config, activeFolder);
+	}
+
+	/**
+	 * Создать обёртку из изображения в буфере обмена (C-IMG-04 п.2).
+	 *
+	 * Имя файла повторяет формат Obsidian (`Pasted image …`), чтобы вложения из
+	 * буфера не выбивались из остальных файлов хранилища.
+	 */
+	private async pasteImageWrapper(): Promise<void> {
+		const image = await this.readClipboardImage();
+		if (!image) {
+			new Notice(
+				"Meta KB: в буфере обмена нет изображения. Скопируйте картинку и " +
+					"повторите команду.",
+				8000,
+			);
+			return;
+		}
+
+		const folder = this.attachmentFolder();
+		const path = buildPastedImagePath({
+			folder,
+			now: new Date(),
+			extension: clipboardImageExtension(image.mime) ?? "png",
+			exists: (candidate) =>
+				this.app.vault.getAbstractFileByPath(candidate) !== null,
+		});
+
+		await this.ensureFolder(folder);
+		let file: TFile;
+		try {
+			file = await this.app.vault.createBinary(path, image.bytes);
+		} catch (err) {
+			console.error("Meta KB: не удалось сохранить изображение из буфера", err);
+			new Notice(`Meta KB: не удалось сохранить ${path}`);
+			return;
+		}
+
+		const candidate = await this.ensureImageWrapper(file.path);
+		if (!candidate) {
+			new Notice(
+				`Meta KB: изображение сохранено (${file.path}), но обёртку создать ` +
+					"не удалось.",
+				8000,
+			);
+			return;
+		}
+		new Notice(`Meta KB: создана обёртка из буфера обмена: ${candidate.title}`);
+
+		const dest = this.app.metadataCache.getFirstLinkpathDest(
+			candidate.linkpath,
+			"",
+		);
+		if (dest) {
+			try {
+				await this.app.workspace.getLeaf(true).openFile(dest);
+			} catch (err) {
+				console.warn("Meta KB: не удалось открыть обёртку", err);
+			}
+		}
 	}
 
 	/** Открыть объект модели по его `id`. */

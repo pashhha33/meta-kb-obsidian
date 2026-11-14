@@ -22,6 +22,11 @@ export interface ImageFilePickerParams {
 	onSubmit: (payload: { title: string; attachment: string }) => void | Promise<void>;
 	/** Перейти к уже существующей обёртке (C-IMG-05). */
 	onOpenExisting?: (id: string) => void;
+	/**
+	 * Создать обёртку из изображения в буфере обмена (C-IMG-04 п.2).
+	 * Кнопка показывается только в режиме `create-wrapper`.
+	 */
+	onFromClipboard?: () => void;
 }
 
 /**
@@ -107,6 +112,22 @@ export class ImageFilePickerModal extends Modal {
 		this.messageEl = body.createEl("div", { cls: "meta-kb-modal-message" });
 
 		const footer = this.contentEl.createEl("div", { cls: "meta-kb-modal-footer" });
+
+		// C-IMG-04 п.2: источник — изображение из буфера обмена.
+		if (this.params.mode === "create-wrapper" && this.params.onFromClipboard) {
+			const fromClipboard = footer.createEl("button", { text: "Из буфера" });
+			fromClipboard.type = "button";
+			fromClipboard.setAttribute(
+				"title",
+				"Создать обёртку из изображения в буфере обмена",
+			);
+			fromClipboard.addEventListener("click", () => {
+				const handler = this.params.onFromClipboard;
+				this.close();
+				handler?.();
+			});
+		}
+
 		const cancelBtn = footer.createEl("button", { text: "Отмена" });
 		cancelBtn.type = "button";
 		cancelBtn.addEventListener("click", () => this.close());

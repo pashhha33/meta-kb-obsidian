@@ -15,5 +15,6 @@ import "./bootstrap.test";
 import "./bootstrap-files.test";
 import "./attachment.test";
 import "./media.test";
+import "./clipboard.test";
 import "./thumbnails.test";
 import "./styles.test";

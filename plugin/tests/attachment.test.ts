@@ -29,6 +29,16 @@ test("normalizeAttachmentPath: якорь и query отбрасываются", 
 	assert.equal(normalizeAttachmentPath("photo.png?v=2"), "photo.png");
 });
 
+test("normalizeAttachmentPath: конечные слэши отбрасываются", () => {
+	// Путь всегда указывает на файл: папка с хвостовым слэшем ломала
+	// склейку «папка/файл» (появлялся двойной слэш).
+	assert.equal(normalizeAttachmentPath("img/"), "img");
+	assert.equal(normalizeAttachmentPath("img//"), "img");
+	assert.equal(normalizeAttachmentPath("./img/"), "img");
+	assert.equal(normalizeAttachmentPath("/img/"), "img");
+	assert.equal(normalizeAttachmentPath("/"), "");
+});
+
 test("normalizeAttachmentPath: пустое и не-строки", () => {
 	assert.equal(normalizeAttachmentPath(""), "");
 	assert.equal(normalizeAttachmentPath("   "), "");

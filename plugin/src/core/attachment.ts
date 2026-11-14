@@ -41,6 +41,8 @@ export function normalizeAttachmentPath(raw: unknown): string {
 	path = path.replace(/\/{2,}/g, "/");
 	path = path.replace(/^\.\//, "");
 	path = path.replace(/^\/+/, "");
+	// Конечный слэш: путь всегда указывает на файл, а не на папку.
+	path = path.replace(/\/+$/, "");
 	// якорь и query к файлу не относятся
 	path = path.split("#")[0].split("?")[0];
 	return path.trim();
