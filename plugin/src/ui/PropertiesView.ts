@@ -1,4 +1,4 @@
-import { Events, ItemView, Notice, TFile, WorkspaceLeaf } from "obsidian";
+import { Events, ItemView, Notice, TFile, WorkspaceLeaf, setIcon } from "obsidian";
 
 import {
 	FieldGroup,
@@ -29,6 +29,8 @@ import {
 	resolveMediaRef,
 } from "../core/media";
 import { thumbnailAspectRatio } from "../core/thumbnails";
+import { findingsForPath, validateVault } from "../core/validation";
+import type { Finding } from "../core/validation";
 import { FieldRow } from "./FieldRow";
 import type { MediaThumb } from "./FieldRow";
 import { openFieldModal } from "./modals/FieldModal";
@@ -199,6 +201,8 @@ export class MetaKBPropertiesView extends ItemView {
 			return; // отрисован более новый кадр
 		}
 
+		this.renderValidationBadge(header, file);
+
 		try {
 			this.renderSections(root, file, form, computed);
 		} catch (err) {
@@ -330,6 +334,47 @@ export class MetaKBPropertiesView extends ItemView {
 				},
 				onOpenLink: (raw) => this.openLinkTarget(raw, file),
 			},
+		);
+	}
+
+	/**
+	 * Бейдж валидации в шапке: сколько находок у открытой заметки.
+	 *
+	 * Показывает то, что вернул `validateVault` (`core/validation.ts`) — полный
+	 * текст правил в подсказке. Развёрнутый отчёт по хранилищу — отдельный срез.
+	 */
+	private renderValidationBadge(header: HTMLElement, file: TFile): void {
+		let findings: Finding[];
+		try {
+			findings = findingsForPath(
+				validateVault(this.plugin.getRegistry().all()),
+				file.basename,
+			);
+		} catch (err) {
+			console.warn("Meta KB: не удалось проверить заметку", err);
+			return;
+		}
+		if (findings.length === 0) {
+			return;
+		}
+		const errors = findings.filter((item) => item.severity === "error").length;
+		const badge = header.createEl("span", {
+			cls: `meta-kb-validate-badge ${errors > 0 ? "is-error" : "is-warning"}`,
+		});
+		setIcon(badge, errors > 0 ? "alert-circle" : "alert-triangle");
+		badge.createEl("span", {
+			cls: "meta-kb-validate-count",
+			text: String(findings.length),
+		});
+		badge.setAttribute(
+			"title",
+			findings
+				.map(
+					(item) =>
+						`${item.severity === "error" ? "Ошибка" : "Предупреждение"} ` +
+						`${item.rule_key}: ${item.message}`,
+				)
+				.join("\n"),
 		);
 	}
 

@@ -68,6 +68,15 @@
 
 ---
 
+## 4.1. Технические долги
+
+| Долг | Суть | Как закрыть |
+|------|------|-------------|
+| `accept.mjs` — вторая реализация валидации | Гейт G4 содержит собственные проверки фикстур, а канон правил — `plugin/src/core/validation.ts` (ITER-2026-11-14-8). Пока расходятся только по объёму (три проверки против девяти), но это две правды. | Переключить `accept.mjs` на собранный бандл (`plugin/main.js` с заглушкой `obsidian`, как в `check-bundle.mjs`) и вызывать `validateVault`. Тогда G4 проверяет те же правила, что видит пользователь. |
+| Validation: 14 правил из 23 не реализованы | Нужны граф определений и связи: `extends-acyclic`/`extends-depth`, `defined-by-consistent`, `unique-machine-keys`, FE-правила, правила отношений, `facet-target-is-facet`, `chapter-*`, `collection-element-consistent`, `orphan-attachment`. | Срез 2 слоя Validation (`PHASE.md`). |
+
+---
+
 ## 5. Рекомендуемый порядок закрытия
 
 1. ~~`validation.md`~~ — **закрыто**  
