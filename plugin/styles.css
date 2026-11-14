@@ -175,11 +175,13 @@ body.meta-kb-hide-core-properties .metadata-properties-heading {
 	display: flex;
 }
 
-.meta-kb-icon-button {
+/* Селектор с `(0,2,0)`: `button:not(.clickable-icon)` (0,1,1) иначе навязал бы
+   кнопке фон и тень, несмотря на transparent/none ниже. */
+.meta-kb-field-actions .meta-kb-icon-button {
 	display: flex;
 	align-items: center;
 	justify-content: center;
-	background: transparent;
+	background-color: transparent;
 	border: none;
 	box-shadow: none;
 	padding: 2px;
@@ -188,7 +190,7 @@ body.meta-kb-hide-core-properties .metadata-properties-heading {
 	cursor: pointer;
 }
 
-.meta-kb-icon-button:hover {
+.meta-kb-field-actions .meta-kb-icon-button:hover {
 	color: var(--text-normal);
 }
 
@@ -414,14 +416,20 @@ textarea.meta-kb-input {
 	margin-top: 6px;
 }
 
-.meta-kb-suggest-item {
+/* Строка подсказки — тоже <button>: сбрасываем `height: var(--input-height)` и
+   `white-space: nowrap`, а специфичность `(0,2,0)` нужна против
+   `button:not(.clickable-icon)`. */
+.meta-kb-suggest-list .meta-kb-suggest-item {
 	display: flex;
 	align-items: baseline;
 	gap: 8px;
 	width: 100%;
+	height: auto;
+	min-height: var(--input-height);
+	white-space: normal;
 	padding: 4px 8px;
 	border: none;
-	background: transparent;
+	background-color: transparent;
 	box-shadow: none;
 	border-radius: var(--radius-s);
 	text-align: left;
@@ -429,8 +437,8 @@ textarea.meta-kb-input {
 	color: var(--text-normal);
 }
 
-.meta-kb-suggest-item:hover {
-	background: var(--background-modifier-hover);
+.meta-kb-suggest-list .meta-kb-suggest-item:hover {
+	background-color: var(--background-modifier-hover);
 }
 
 .meta-kb-suggest-type {
@@ -448,10 +456,11 @@ textarea.meta-kb-input {
 .meta-kb-gallery {
 	display: grid;
 	grid-template-columns: repeat(auto-fill, var(--meta-kb-thumb-size, 120px));
+	grid-auto-rows: min-content;
 	justify-content: start;
 	gap: 8px;
 	/* Родитель `.meta-kb-modal-body` — flex-колонка; без flex:none галерея
-	   сжимается по высоте и миниатюры обрезаются полосой. */
+	   сжимается по высоте. */
 	flex: none;
 	width: 100%;
 	max-height: 320px;
@@ -467,16 +476,33 @@ textarea.meta-kb-input {
 	);
 }
 
-.meta-kb-thumb {
+/*
+ * Миниатюра — это <button>, а Obsidian глобально задаёт
+ * `button { height: var(--input-height); white-space: nowrap; }` и
+ * `button:not(.clickable-icon) { background-color: …; box-shadow: … }`.
+ * Первое обрезало картинку полосой высотой ~30px, второе перебивало фон.
+ *
+ * Поэтому здесь: `height: auto` + сброс кнопочных умолчаний, и селектор
+ * `.meta-kb-gallery .meta-kb-thumb` — специфичность (0,2,0), которая выше
+ * `button:not(.clickable-icon)` (0,1,1). Без этого тень и фон кнопки
+ * возвращаются независимо от порядка подключения styles.css.
+ */
+.meta-kb-gallery .meta-kb-thumb {
 	display: flex;
 	flex-direction: column;
 	align-items: stretch;
+	justify-content: flex-start;
 	gap: 2px;
+	box-sizing: border-box;
+	height: auto;
+	min-height: 0;
+	white-space: normal;
+	line-height: normal;
 	width: var(--meta-kb-thumb-size, 120px);
 	padding: 4px;
 	border: 1px solid var(--background-modifier-border);
 	border-radius: var(--radius-s);
-	background: var(--background-secondary);
+	background-color: var(--background-secondary);
 	box-shadow: none;
 	cursor: pointer;
 	overflow: hidden;
@@ -486,21 +512,21 @@ textarea.meta-kb-input {
 	width: auto;
 }
 
-.meta-kb-thumb:hover {
+.meta-kb-gallery .meta-kb-thumb:hover {
 	border-color: var(--interactive-accent);
-	background: var(--background-modifier-hover);
+	background-color: var(--background-modifier-hover);
 }
 
-.meta-kb-thumb.is-selected {
+.meta-kb-gallery .meta-kb-thumb.is-selected {
 	border-color: var(--interactive-accent);
 	box-shadow: 0 0 0 1px var(--interactive-accent);
 }
 
-.meta-kb-thumb.is-wrapped {
+.meta-kb-gallery .meta-kb-thumb.is-wrapped {
 	opacity: 0.6;
 }
 
-.meta-kb-thumb img {
+.meta-kb-gallery .meta-kb-thumb img {
 	display: block;
 	flex: none;
 	width: 100%;
@@ -530,6 +556,7 @@ textarea.meta-kb-input {
 }
 
 .meta-kb-thumb-name {
+	display: block;
 	font-size: var(--font-ui-smaller);
 	color: var(--text-muted);
 	max-width: 100%;
