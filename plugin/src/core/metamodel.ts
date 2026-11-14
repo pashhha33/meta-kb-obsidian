@@ -58,6 +58,16 @@ interface RelationDef {
 	cardinality: string;
 }
 
+interface FieldExpansionDef {
+	id: string;
+	applies_to_type: string[];
+	trigger_property: string;
+	trigger_values: string[];
+	adds_properties: string[];
+	adds_relations: string[];
+	mode: string;
+}
+
 interface MetatypeDef {
 	type_value: string;
 	label: string;
@@ -86,7 +96,7 @@ export interface MetamodelContract {
 	universalProperties: PropertyDef[];
 	properties: PropertyDef[];
 	relations: RelationDef[];
-	fieldExpansion: unknown[];
+	fieldExpansion: FieldExpansionDef[];
 	validationRules: unknown[];
 	settings: unknown[];
 	enums: {
@@ -202,4 +212,49 @@ export function resolveField(key: string, value: unknown): ResolvedField {
 		readOnly: false,
 		group: "schema",
 	};
+}
+
+// --- данные для слоя Schema (эффективные поля) -------------------------------
+
+/** 29 типов ядра (type_value, label, extends, group). */
+export const CORE_TYPES: TypeDef[] = metamodel.types;
+
+/** Все свойства: универсальные (9) + ядерные. */
+export const ALL_PROPERTIES: PropertyDef[] = [
+	...metamodel.universalProperties,
+	...metamodel.properties,
+];
+
+/** Все отношения: классификация (4) + ядро (16). */
+export const ALL_RELATIONS: RelationDef[] = metamodel.relations;
+
+/** Правила field-expansion (FE-01…10). */
+export const FIELD_EXPANSION: FieldExpansionDef[] = metamodel.fieldExpansion;
+
+const typeByValue = new Map(metamodel.types.map((t) => [t.type_value, t]));
+
+/** Родительский type_value по `extends` или null. */
+export function typeExtends(typeValue: string): string | null {
+	return typeByValue.get(typeValue)?.extends ?? null;
+}
+
+/** Цепочка наследования от type_value к корню (с защитой от циклов). */
+export function typeChain(typeValue: string): string[] {
+	const chain: string[] = [];
+	const seen = new Set<string>();
+	let cur: string | null = typeValue;
+	while (cur && !seen.has(cur)) {
+		seen.add(cur);
+		chain.push(cur);
+		cur = typeExtends(cur);
+	}
+	return chain;
+}
+
+/** Известен ли type_value (метатип или тип ядра). */
+export function isKnownType(typeValue: string): boolean {
+	return (
+		typeByValue.has(typeValue) ||
+		metamodel.metatypes.some((mt) => mt.type_value === typeValue)
+	);
 }
