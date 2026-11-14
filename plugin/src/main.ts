@@ -1,97 +1,147 @@
 import { Plugin, WorkspaceLeaf } from "obsidian";
 import {
-        DEFAULT_SETTINGS,
-        MetaKBSettings,
-        MetaKBSettingTab,
+	DEFAULT_SETTINGS,
+	MetaKBSettings,
+	MetaKBSettingTab,
 } from "./settings";
 import {
-        MetaKBPropertiesView,
-        VIEW_TYPE_META_KB_PROPERTIES,
+	MetaKBPropertiesView,
+	VIEW_TYPE_META_KB_PROPERTIES,
 } from "./ui/PropertiesView";
+import { Registry } from "./core/registry";
+import { toObjectRecord } from "./core/loader";
 
 /** Класс на <body>: включает CSS-скрытие core Properties (styles.css). */
 const HIDE_CORE_PROPERTIES_CSS_CLASS = "meta-kb-hide-core-properties";
 
+/** Задержка пересборки Registry после изменений vault. */
+const REGISTRY_REBUILD_DEBOUNCE_MS = 300;
+
 /**
  * Meta KB — плагин поддержки метамодели Second Brain PKB.
  *
- * Срез ITER-2026-11-06-0 (AGENT-TASK.md):
- * каркас Properties Widget + скрытие core Properties.
- * Полный Registry/Schema — в следующих срезах (plugin/DESIGN.md §7.8).
+ * Срез ITER-2026-11-13-1: Loader/Registry/Schema + связь с UI.
+ * Registry пересобирается по изменениям metadataCache (пока полный пересбор).
  */
 export default class MetaKBPlugin extends Plugin {
-        /** Настройки плагина (загружаются в onload). */
-        public override settings!: MetaKBSettings;
+	/** Настройки плагина (загружаются в onload). */
+	public override settings!: MetaKBSettings;
 
-        override async onload(): Promise<void> {
-                await this.loadSettings();
+	/** Индекс объектов vault: id → ObjectRecord. */
+	private registry = new Registry();
+	private rebuildTimer: number | null = null;
 
-                // 1. View «Meta KB Properties» (правая боковая панель).
-                this.registerView(
-                        VIEW_TYPE_META_KB_PROPERTIES,
-                        (leaf: WorkspaceLeaf) => new MetaKBPropertiesView(leaf, this),
-                );
+	/** Доступ к Registry для UI (виджет и модалки). */
+	getRegistry(): Registry {
+		return this.registry;
+	}
 
-                // 2. Команда открытия виджета.
-                this.addCommand({
-                        id: "open-properties-widget",
-                        name: "Open properties widget",
-                        callback: () => {
-                                void this.activatePropertiesView();
-                        },
-                });
+	override async onload(): Promise<void> {
+		await this.loadSettings();
 
-                // 3. Настройки.
-                this.addSettingTab(new MetaKBSettingTab(this.app, this));
+		this.registerView(
+			VIEW_TYPE_META_KB_PROPERTIES,
+			(leaf: WorkspaceLeaf) => new MetaKBPropertiesView(leaf, this),
+		);
 
-                // 4. CSS-скрытие core Properties (ADR-006).
-                this.applyHideCoreProperties();
+		this.addCommand({
+			id: "open-properties-widget",
+			name: "Open properties widget",
+			callback: () => {
+				void this.activatePropertiesView();
+			},
+		});
 
-                console.log("Meta KB plugin loaded");
-        }
+		this.addSettingTab(new MetaKBSettingTab(this.app, this));
 
-        override onunload(): void {
-                // Снимаем служебный класс с <body>; листья не детачим —
-                // Obsidian сам восстановит view при повторном включении плагина.
-                document.body.classList.remove(HIDE_CORE_PROPERTIES_CSS_CLASS);
-                console.log("Meta KB plugin unloaded");
-        }
+		this.applyHideCoreProperties();
 
-        /** Включает/выключает CSS-скрытие core Properties по настройке. */
-        public applyHideCoreProperties(): void {
-                document.body.classList.toggle(
-                        HIDE_CORE_PROPERTIES_CSS_CLASS,
-                        this.settings.hideCoreProperties,
-                );
-        }
+		// Registry: первичная сборка + пересборка по изменениям vault.
+		this.app.workspace.onLayoutReady(() => this.rebuildRegistry());
+		const schedule = (): void => this.scheduleRebuild();
+		this.registerEvent(this.app.metadataCache.on("changed", schedule));
+		this.registerEvent(this.app.metadataCache.on("resolved", schedule));
+		this.registerEvent(this.app.vault.on("delete", schedule));
+		this.registerEvent(this.app.vault.on("rename", schedule));
 
-        /** Открывает (или активирует существующий) leaf виджета в правой панели. */
-        private async activatePropertiesView(): Promise<void> {
-                const { workspace } = this.app;
+		console.log("Meta KB plugin loaded");
+	}
 
-                let leaf: WorkspaceLeaf | null = null;
-                const existing = workspace.getLeavesOfType(VIEW_TYPE_META_KB_PROPERTIES);
-                if (existing.length > 0) {
-                        leaf = existing[0];
-                } else {
-                        // getRightLeaf существует с 0.9.7 — совместимо с minAppVersion 1.5.0.
-                        leaf = workspace.getRightLeaf(false) ?? workspace.getLeaf(true);
-                        await leaf.setViewState({
-                                type: VIEW_TYPE_META_KB_PROPERTIES,
-                                active: true,
-                        });
-                }
-                if (leaf) {
-                        await workspace.revealLeaf(leaf);
-                }
-        }
+	override onunload(): void {
+		if (this.rebuildTimer !== null) {
+			window.clearTimeout(this.rebuildTimer);
+			this.rebuildTimer = null;
+		}
+		document.body.classList.remove(HIDE_CORE_PROPERTIES_CSS_CLASS);
+		console.log("Meta KB plugin unloaded");
+	}
 
-        async loadSettings(): Promise<void> {
-                const stored = (await this.loadData()) as Partial<MetaKBSettings> | null;
-                this.settings = Object.assign({}, DEFAULT_SETTINGS, stored ?? {});
-        }
+	/** Включает/выключает CSS-скрытие core Properties по настройке. */
+	public applyHideCoreProperties(): void {
+		document.body.classList.toggle(
+			HIDE_CORE_PROPERTIES_CSS_CLASS,
+			this.settings.hideCoreProperties,
+		);
+	}
 
-        async saveSettings(): Promise<void> {
-                await this.saveData(this.settings);
-        }
+	private scheduleRebuild(): void {
+		if (this.rebuildTimer !== null) {
+			window.clearTimeout(this.rebuildTimer);
+		}
+		this.rebuildTimer = window.setTimeout(() => {
+			this.rebuildTimer = null;
+			this.rebuildRegistry();
+		}, REGISTRY_REBUILD_DEBOUNCE_MS);
+	}
+
+	/** Полная пересборка Registry из metadataCache всех markdown-файлов. */
+	private rebuildRegistry(): void {
+		try {
+			const next = new Registry();
+			for (const file of this.app.vault.getMarkdownFiles()) {
+				const fm = this.app.metadataCache.getFileCache(file)?.frontmatter;
+				if (fm && typeof fm === "object") {
+					next.add(
+						toObjectRecord(
+							file.basename,
+							fm as Record<string, unknown>,
+							"",
+						),
+					);
+				}
+			}
+			this.registry = next;
+		} catch (err) {
+			console.warn("Meta KB: не удалось перестроить Registry", err);
+		}
+	}
+
+	/** Открывает (или активирует существующий) leaf виджета в правой панели. */
+	private async activatePropertiesView(): Promise<void> {
+		const { workspace } = this.app;
+
+		let leaf: WorkspaceLeaf | null = null;
+		const existing = workspace.getLeavesOfType(VIEW_TYPE_META_KB_PROPERTIES);
+		if (existing.length > 0) {
+			leaf = existing[0];
+		} else {
+			leaf = workspace.getRightLeaf(false) ?? workspace.getLeaf(true);
+			await leaf.setViewState({
+				type: VIEW_TYPE_META_KB_PROPERTIES,
+				active: true,
+			});
+		}
+		if (leaf) {
+			await workspace.revealLeaf(leaf);
+		}
+	}
+
+	async loadSettings(): Promise<void> {
+		const stored = (await this.loadData()) as Partial<MetaKBSettings> | null;
+		this.settings = Object.assign({}, DEFAULT_SETTINGS, stored ?? {});
+	}
+
+	async saveSettings(): Promise<void> {
+		await this.saveData(this.settings);
+	}
 }

@@ -33,9 +33,10 @@ export function suggestLinks(
 	opts: { targetTypes?: string[] | null; limit?: number } = {},
 ): SuggestCandidate[] {
 	const q = query.trim().toLowerCase();
-	const limited = opts.targetTypes && opts.targetTypes.length > 0
-		? opts.targetTypes.filter((t) => t !== "*")
-		: [];
+	const limited =
+		opts.targetTypes && opts.targetTypes.length > 0
+			? opts.targetTypes.filter((t) => t !== "*")
+			: [];
 	const target = limited.length > 0 ? new Set(limited) : null;
 	const limit = opts.limit ?? 20;
 
@@ -59,8 +60,48 @@ export function suggestLinks(
 
 	scored.sort(
 		(a, b) =>
-			a.score - b.score ||
-			a.candidate.title.localeCompare(b.candidate.title),
+			a.score - b.score || a.candidate.title.localeCompare(b.candidate.title),
 	);
 	return scored.slice(0, limit).map((x) => x.candidate);
+}
+
+const LINK_RE = /^\[\[([^\]|#]+)(?:#[^\]|]*)?(?:\|([^\]]+))?\]\]$/;
+
+/** Разобрать текущее значение фронтматтера в кандидатов (для инициализации модалки). */
+export function linksToCandidates(value: unknown): SuggestCandidate[] {
+	const arr = Array.isArray(value) ? value : value == null ? [] : [value];
+	const out: SuggestCandidate[] = [];
+	for (const v of arr) {
+		if (typeof v !== "string") {
+			continue;
+		}
+		const m = v.trim().match(LINK_RE);
+		if (!m) {
+			continue;
+		}
+		const linkpath = m[1].trim();
+		out.push({
+			id: linkpath,
+			title: (m[2] ?? linkpath).trim(),
+			type: "",
+			linkpath,
+		});
+	}
+	return out;
+}
+
+/** Собрать значение фронтматтера из выбранных кандидатов (undefined = удалить ключ). */
+export function candidatesToValue(
+	selected: SuggestCandidate[],
+	multiple: boolean,
+): unknown {
+	if (selected.length === 0) {
+		return undefined;
+	}
+	const links = selected.map((c) =>
+		c.title && c.title !== c.linkpath
+			? `[[${c.linkpath}|${c.title}]]`
+			: `[[${c.linkpath}]]`,
+	);
+	return multiple ? links : links[0];
 }

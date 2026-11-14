@@ -1,6 +1,10 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { suggestLinks } from "../src/core/suggest";
+import {
+	suggestLinks,
+	linksToCandidates,
+	candidatesToValue,
+} from "../src/core/suggest";
 import { toObjectRecord } from "../src/core/loader";
 
 const records = [
@@ -37,4 +41,37 @@ test("suggestLinks: '*' — любой тип", () => {
 
 test("suggestLinks: linkpath = {type}_{id}", () => {
 	assert.equal(suggestLinks(records, "Война")[0].linkpath, "book_wp");
+});
+
+test("linksToCandidates: одиночная ссылка с алиасом и без", () => {
+	assert.deepEqual(linksToCandidates("[[person_alice|Алиса]]"), [
+		{ id: "person_alice", title: "Алиса", type: "", linkpath: "person_alice" },
+	]);
+	assert.deepEqual(linksToCandidates("[[book_wp]]"), [
+		{ id: "book_wp", title: "book_wp", type: "", linkpath: "book_wp" },
+	]);
+});
+
+test("linksToCandidates: список и пустое значение", () => {
+	assert.equal(linksToCandidates(["[[a]]", "[[b|B]]"]).length, 2);
+	assert.equal(linksToCandidates(undefined).length, 0);
+	assert.equal(linksToCandidates("не ссылка").length, 0);
+});
+
+test("candidatesToValue: одиночное и списком, пусто → undefined", () => {
+	assert.equal(
+		candidatesToValue([{ id: "x", title: "X", type: "", linkpath: "person_x" }], false),
+		"[[person_x|X]]",
+	);
+	assert.deepEqual(
+		candidatesToValue(
+			[
+				{ id: "a", title: "a", type: "", linkpath: "a" },
+				{ id: "b", title: "B", type: "", linkpath: "b" },
+			],
+			true,
+		),
+		["[[a]]", "[[b|B]]"],
+	);
+	assert.equal(candidatesToValue([], false), undefined);
 });
