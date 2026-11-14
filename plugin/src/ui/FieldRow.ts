@@ -8,9 +8,14 @@ export interface FieldRowModel {
 	valueType: FieldValueType;
 	value: unknown;
 	readOnly: boolean;
+	/**
+	 * Поле есть в эффективной схеме типа, но отсутствует в frontmatter:
+	 * строка показывается приглушённо, как приглашение заполнить.
+	 */
+	absent?: boolean;
 	/** Форматирование datetime по настройкам плагина. */
 	formatDatetime: (iso: unknown) => string;
-	/** Подпись значения enum (статический stub). */
+	/** Подпись значения enum (из контракта). */
 	enumValueLabelFn: (raw: string) => string;
 }
 
@@ -40,7 +45,10 @@ export class FieldRow {
 		actions: FieldRowActions,
 	) {
 		const row = container.createEl("div", {
-			cls: `meta-kb-field-row${model.readOnly ? " is-read-only" : ""}`,
+			cls:
+				"meta-kb-field-row" +
+				(model.readOnly ? " is-read-only" : "") +
+				(model.absent ? " is-absent" : ""),
 		});
 		row.setAttribute("data-key", model.key);
 		row.setAttribute("data-value-type", model.valueType);

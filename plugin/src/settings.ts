@@ -22,6 +22,8 @@ export interface MetaKBSettings {
 	 * иначе удалять ключ (пустое значение = отсутствие ключа, §4.4 онтологии).
 	 */
 	booleanWriteFalse: boolean;
+	/** Знаков в авторском листе — делитель для `book.author-sheets`. */
+	authorSheetChars: number;
 }
 
 export const DEFAULT_SETTINGS: MetaKBSettings = {
@@ -29,6 +31,7 @@ export const DEFAULT_SETTINGS: MetaKBSettings = {
 	datetimeDisplay: "local",
 	datetimeOffset: "+00:00",
 	booleanWriteFalse: true,
+	authorSheetChars: 40000,
 };
 
 /** Вкладка настроек плагина. */
@@ -102,6 +105,26 @@ export class MetaKBSettingTab extends PluginSettingTab {
 				toggle.setValue(this.plugin.settings.booleanWriteFalse);
 				toggle.onChange(async (value) => {
 					this.plugin.settings.booleanWriteFalse = value;
+					await this.plugin.saveSettings();
+					this.notifySettingsChanged();
+				});
+			});
+
+		new Setting(containerEl)
+			.setName("Знаков в авторском листе")
+			.setDesc(
+				"Делитель для вычисляемого поля book.author-sheets. " +
+					"По умолчанию 40000 (metamodel/plugin-settings.md).",
+			)
+			.addText((text) => {
+				text.inputEl.type = "number";
+				text.setValue(String(this.plugin.settings.authorSheetChars));
+				text.onChange(async (value) => {
+					const parsed = Number.parseInt(value, 10);
+					if (!Number.isFinite(parsed) || parsed <= 0) {
+						return;
+					}
+					this.plugin.settings.authorSheetChars = parsed;
 					await this.plugin.saveSettings();
 					this.notifySettingsChanged();
 				});

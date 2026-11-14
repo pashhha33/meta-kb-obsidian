@@ -2,14 +2,19 @@ import { Events, ItemView, Notice, TFile, WorkspaceLeaf } from "obsidian";
 
 import {
 	FieldGroup,
-	ResolvedField,
 	enumValueLabel,
 	parseCanonicalLink,
 	relationDef,
-	resolveField,
 } from "../labels";
+import type { ResolvedField } from "../labels";
 import { formatDatetime } from "../settings";
-import { isSignificantChange } from "../core/derived";
+import {
+	computeAuthorSheets,
+	computeCharCount,
+	isSignificantChange,
+} from "../core/derived";
+import { buildForm } from "../core/form";
+import type { FormModel, FormRow } from "../core/form";
 import { suggestLinks } from "../core/suggest";
 import type { SuggestCandidate } from "../core/suggest";
 import { FieldRow } from "./FieldRow";
@@ -33,15 +38,20 @@ interface FrontmatterMap {
 }
 
 /**
- * View «Meta KB Properties» — свойства активного файла.
+ * View «Meta KB Properties» — форма свойств активного файла.
  *
- * ITER-2026-11-13-1: link/media-модалки берут подсказки из Registry;
- * значимое изменение поля двигает updated_at (ADR-004).
+ * ITER-2026-11-14-0: форма строится по эффективной схеме типа
+ * (`core/form.ts` → `effectiveSchema`), поэтому видны и те поля, которых в
+ * frontmatter ещё нет: их можно заполнить. Поля field-expansion появляются
+ * сразу после выбора триггера (occupation → office/party). Вычисляемые
+ * (`char-count`, `author-sheets`) считаются из тела заметки, не хранятся.
  */
 export class MetaKBPropertiesView extends ItemView {
 	private readonly plugin: MetaKBPluginAPI;
 	private renderTimer: number | null = null;
 	private lastFile: TFile | null = null;
+	/** Защита от гонок: устаревший async-render не должен рисовать. */
+	private renderSeq = 0;
 
 	constructor(leaf: WorkspaceLeaf, plugin: MetaKBPluginAPI) {
 		super(leaf);
@@ -81,7 +91,7 @@ export class MetaKBPropertiesView extends ItemView {
 		this.registerEvent(
 			events.on("meta-kb:settings-changed", () => this.scheduleRender()),
 		);
-		this.render();
+		void this.render();
 	}
 
 	protected override async onClose(): Promise<void> {
@@ -99,11 +109,12 @@ export class MetaKBPropertiesView extends ItemView {
 		this.cancelScheduledRender();
 		this.renderTimer = window.setTimeout(() => {
 			this.renderTimer = null;
-			this.render();
+			void this.render();
 		}, 100);
 	}
 
-	private render(): void {
+	private async render(): Promise<void> {
+		const seq = ++this.renderSeq;
 		const root = this.contentEl;
 		root.empty();
 		root.addClass("meta-kb-properties");
@@ -119,6 +130,7 @@ export class MetaKBPropertiesView extends ItemView {
 			return;
 		}
 
+		// Битый frontmatter не должен ломать виджет (требование 6 среза 1).
 		let frontmatter: FrontmatterMap | undefined;
 		try {
 			frontmatter = this.app.metadataCache.getFileCache(file)?.frontmatter;
@@ -129,17 +141,6 @@ export class MetaKBPropertiesView extends ItemView {
 
 		const header = root.createEl("div", { cls: "meta-kb-file-header" });
 		header.createEl("div", { cls: "meta-kb-file-name", text: file.basename });
-		const typeRaw =
-			frontmatter && typeof frontmatter["type"] === "string"
-				? (frontmatter["type"] as string)
-				: null;
-		if (typeRaw) {
-			const chip = header.createEl("span", {
-				cls: "meta-kb-type-chip",
-				text: typeRaw,
-			});
-			chip.setAttribute("title", `type: ${typeRaw}`);
-		}
 
 		if (!frontmatter || typeof frontmatter !== "object") {
 			root.createEl("div", {
@@ -149,8 +150,42 @@ export class MetaKBPropertiesView extends ItemView {
 			return;
 		}
 
+		const typeRaw =
+			typeof frontmatter["type"] === "string"
+				? (frontmatter["type"] as string)
+				: "";
+		const form = buildForm(typeRaw, frontmatter);
+
+		if (typeRaw) {
+			const chip = header.createEl("span", {
+				cls: "meta-kb-type-chip",
+				text: typeRaw,
+			});
+			chip.setAttribute(
+				"title",
+				form.typeValue
+					? `type: ${typeRaw}`
+					: `type: ${typeRaw} — тип не описан в метамодели`,
+			);
+		}
+		if (form.total > 0) {
+			header.createEl("span", {
+				cls: "meta-kb-form-progress",
+				text: `${form.filled}/${form.total}`,
+			});
+			header.lastElementChild?.setAttribute(
+				"title",
+				"Заполнено полей эффективной формы",
+			);
+		}
+
+		const computed = await this.computedValues(file, form);
+		if (seq !== this.renderSeq) {
+			return; // отрисован более новый кадр
+		}
+
 		try {
-			this.renderSections(root, file, frontmatter);
+			this.renderSections(root, file, form, computed);
 		} catch (err) {
 			console.error("Meta KB: ошибка отрисовки виджета", err);
 			root.createEl("div", {
@@ -160,39 +195,64 @@ export class MetaKBPropertiesView extends ItemView {
 		}
 	}
 
+	/** Живые значения вычисляемых полей из тела заметки (в frontmatter не пишем). */
+	private async computedValues(
+		file: TFile,
+		form: FormModel,
+	): Promise<Record<string, unknown>> {
+		const keys = form.computed.map((row) => row.field.key);
+		if (keys.length === 0) {
+			return {};
+		}
+		let body = "";
+		try {
+			body = await this.app.vault.cachedRead(file);
+		} catch (err) {
+			console.warn("Meta KB: не удалось прочитать тело заметки", err);
+		}
+		const values: Record<string, unknown> = {};
+		if (keys.includes("char-count")) {
+			values["char-count"] = computeCharCount(body);
+		}
+		if (keys.includes("author-sheets")) {
+			const charCount =
+				typeof values["char-count"] === "number"
+					? (values["char-count"] as number)
+					: 0;
+			values["author-sheets"] = computeAuthorSheets(
+				charCount,
+				this.plugin.settings.authorSheetChars,
+			);
+		}
+		return values;
+	}
+
 	private renderSections(
 		root: HTMLElement,
 		file: TFile,
-		frontmatter: FrontmatterMap,
+		form: FormModel,
+		computed: Record<string, unknown>,
 	): void {
-		const groups = new Map<FieldGroup, ResolvedField[]>();
 		for (const group of SECTION_ORDER) {
-			groups.set(group, []);
-		}
-		for (const key of Object.keys(frontmatter)) {
-			const field = resolveField(key, frontmatter[key]);
-			groups.get(field.group)?.push(field);
-		}
-
-		for (const group of SECTION_ORDER) {
-			const fields = groups.get(group);
-			if (!fields || fields.length === 0) {
+			const rows = form[group];
+			if (rows.length === 0) {
 				continue;
 			}
-			this.renderSection(root, group, fields, file, frontmatter);
+			this.renderSection(root, group, rows, file, computed);
 		}
 	}
 
 	private renderSection(
 		root: HTMLElement,
 		group: FieldGroup,
-		fields: ResolvedField[],
+		rows: FormRow[],
 		file: TFile,
-		frontmatter: FrontmatterMap,
+		computed: Record<string, unknown>,
 	): void {
 		const section = root.createEl("div", {
 			cls: `meta-kb-section meta-kb-section-${group}`,
 		});
+		// Системная секция свёрнута по умолчанию (DESIGN.md §7.10).
 		if (group === "system") {
 			section.addClass("is-collapsed");
 		}
@@ -204,24 +264,29 @@ export class MetaKBPropertiesView extends ItemView {
 		});
 		headerEl.createEl("span", {
 			cls: "meta-kb-section-count",
-			text: String(fields.length),
+			text: String(rows.length),
 		});
 		headerEl.addEventListener("click", () => {
 			section.toggleClass("is-collapsed", !section.hasClass("is-collapsed"));
 		});
 
 		const body = section.createEl("div", { cls: "meta-kb-section-body" });
-		for (const field of fields) {
-			this.renderFieldRow(body, field, frontmatter[field.key], file);
+		for (const row of rows) {
+			this.renderFieldRow(body, row, file, computed[row.field.key]);
 		}
 	}
 
 	private renderFieldRow(
 		container: HTMLElement,
-		field: ResolvedField,
-		rawValue: unknown,
+		row: FormRow,
 		file: TFile,
+		computedValue: unknown,
 	): void {
+		const field = row.field;
+		const isComputed = field.group === "computed";
+		const rawValue =
+			isComputed && computedValue !== undefined ? computedValue : row.value;
+
 		new FieldRow(
 			container,
 			{
@@ -230,6 +295,8 @@ export class MetaKBPropertiesView extends ItemView {
 				valueType: field.valueType,
 				value: rawValue,
 				readOnly: field.readOnly,
+				// Пустая строка формы — не данные, а приглашение заполнить.
+				absent: !row.present && !field.readOnly,
 				formatDatetime: (iso) => formatDatetime(iso, this.plugin.settings),
 				enumValueLabelFn: (raw) => enumValueLabel(field.key, raw),
 			},
@@ -254,21 +321,17 @@ export class MetaKBPropertiesView extends ItemView {
 		rawValue: unknown,
 		file: TFile,
 	): void {
-		if (field.readOnly) {
-			return;
-		}
-
-		const isMedia =
-			field.valueType === "media" || field.valueType === "list<media>";
+		const valueType = field.valueType;
+		const isMedia = valueType === "media" || valueType === "list<media>";
 		const targetTypes = isMedia
 			? ["image"]
-			: relationDef(field.key)?.target_type ?? null;
+			: (relationDef(field.key)?.target_type ?? null);
 		const registry = this.plugin.getRegistry();
 
 		openFieldModal(this.app, {
 			key: field.key,
 			label: field.label,
-			valueType: field.valueType,
+			valueType,
 			currentValue: rawValue,
 			enumValues: field.enumValues,
 			suggest: (query: string): SuggestCandidate[] =>

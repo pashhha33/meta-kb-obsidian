@@ -339,3 +339,104 @@ textarea.meta-kb-input {
 	color: var(--text-muted);
 	word-break: break-all;
 }
+
+/* --- Форма по типу: незаполненные поля эффективной схемы --- */
+.meta-kb-field-row.is-absent .meta-kb-field-label,
+.meta-kb-field-row.is-absent .meta-kb-field-icon {
+	opacity: 0.55;
+}
+
+.meta-kb-field-row.is-absent .meta-kb-field-value {
+	color: var(--text-faint);
+	font-style: italic;
+}
+
+.meta-kb-field-row.is-absent .meta-kb-icon-button {
+	opacity: 0.45;
+}
+
+.meta-kb-field-row.is-absent:hover .meta-kb-icon-button {
+	opacity: 1;
+}
+
+/* Заполнено / всего полей эффективной формы */
+.meta-kb-form-progress {
+	margin-left: auto;
+	color: var(--text-faint);
+	font-size: var(--font-ui-smaller);
+	font-variant-numeric: tabular-nums;
+}
+
+/* --- Выбор ссылок/медиа из Registry (LinkModal / MediaModal) --- */
+.meta-kb-chips {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 4px;
+	margin-bottom: 6px;
+}
+
+.meta-kb-chips:empty {
+	display: none;
+}
+
+.meta-kb-chip {
+	display: inline-flex;
+	align-items: center;
+	gap: 4px;
+	padding: 2px 4px 2px 8px;
+	border-radius: var(--radius-s);
+	background: var(--background-modifier-hover);
+	font-size: var(--font-ui-smaller);
+}
+
+.meta-kb-chip button {
+	border: none;
+	background: transparent;
+	box-shadow: none;
+	color: var(--text-muted);
+	cursor: pointer;
+	padding: 0 4px;
+	font-size: var(--font-ui-small);
+	line-height: 1;
+}
+
+.meta-kb-chip button:hover {
+	color: var(--text-normal);
+	background: transparent;
+}
+
+.meta-kb-suggest-list {
+	display: flex;
+	flex-direction: column;
+	gap: 2px;
+	max-height: 260px;
+	overflow: auto;
+	margin-top: 6px;
+}
+
+.meta-kb-suggest-item {
+	display: flex;
+	align-items: baseline;
+	gap: 8px;
+	width: 100%;
+	padding: 4px 8px;
+	border: none;
+	background: transparent;
+	box-shadow: none;
+	border-radius: var(--radius-s);
+	text-align: left;
+	cursor: pointer;
+	color: var(--text-normal);
+}
+
+.meta-kb-suggest-item:hover {
+	background: var(--background-modifier-hover);
+}
+
+.meta-kb-suggest-type {
+	margin-left: auto;
+	color: var(--text-faint);
+	font-size: var(--font-ui-smaller);
+	font-family: var(--font-monospace);
+}
+

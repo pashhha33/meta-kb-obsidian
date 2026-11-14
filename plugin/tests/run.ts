@@ -7,3 +7,4 @@ import "./loader.test";
 import "./registry.test";
 import "./derived.test";
 import "./suggest.test";
+import "./form.test";
