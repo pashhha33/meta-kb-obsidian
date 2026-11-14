@@ -27,8 +27,8 @@ function rec(
 		type,
 		title,
 		aliases: [title],
-		status: "active",
-		props: { type, id, title, aliases: [title], status: "active", ...props },
+		status: "accepted",
+		props: { type, id, title, aliases: [title], status: "accepted", ...props },
 		body: "",
 	};
 }

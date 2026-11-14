@@ -22,8 +22,8 @@ function rec(
 		type,
 		title,
 		aliases: [title],
-		status: "active",
-		props: { type, id, title, aliases: [title], status: "active", ...props },
+		status: "accepted",
+		props: { type, id, title, aliases: [title], status: "accepted", ...props },
 		body: "",
 		...overrides,
 	};
@@ -306,6 +306,55 @@ test("orphan-attachment: без списка файлов правило мол�
 		rulesOf(validateVault([image]).findings).filter(
 			(key) => key === "orphan-attachment",
 		),
+		[],
+	);
+});
+
+test("enum-value-in-set: значение вне списка свойства (properties)", () => {
+	const person = rec("person", "p1", {
+		occupation: ["not-a-job"],
+	});
+	const findings = validateVault([person]).findings.filter(
+		(f) => f.rule_key === "enum-value-in-set",
+	);
+	assert.equal(findings.length, 1);
+	assert.equal(findings[0].field, "occupation");
+	assert.ok(findings[0].message.includes("not-a-job"));
+});
+
+test("enum-value-in-set: системные enum тоже проверяются", () => {
+	// Значение должно попасть в `props`: правило читает frontmatter, а не поле
+	// записи, поэтому переопределяем именно свойства.
+	const badStatus = rec("note", "n1", { status: "active" });
+	const badLayer = rec("note", "n2", { layer: "domain" });
+	const findings = validateVault([badStatus, badLayer]).findings.filter(
+		(f) => f.rule_key === "enum-value-in-set",
+	);
+	assert.equal(findings.length, 2);
+	assert.ok(findings.some((f) => f.field === "status"));
+	assert.ok(findings.some((f) => f.field === "layer"));
+});
+
+test("enum-value-in-set: корректные значения молчат", () => {
+	const person = rec("person", "p1", {
+		occupation: ["politician", "writer"],
+		layer: "content",
+	});
+	assert.deepEqual(
+		rulesOf(validateVault([person]).findings).filter(
+			(key) => key === "enum-value-in-set",
+		),
+		[],
+	);
+});
+
+test("relation-endpoints-match: наследование по extends учитывается", () => {
+	// `author` объявлен для source|quote, но `book` наследует source (INV-18).
+	const person = rec("person", "p1");
+	const book = rec("book", "b1", { author: ["[[person_p1|Алиса]]"] });
+	const result = validateVault([person, book]);
+	assert.deepEqual(
+		result.findings.filter((f) => f.rule_key === "relation-endpoints-match"),
 		[],
 	);
 });

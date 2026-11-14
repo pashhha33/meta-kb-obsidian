@@ -1,5 +1,12 @@
 # Changelog метамодели
 
+## [ITER-2026-11-14-14] — 2026-11-14 · schemaVersion 1.4.0 → 1.5.0
+- Добавлено правило `enum-value-in-set`: значение enum-свойства обязано
+  входить в `enum_values` из контракта. Пробел вскрылся при переводе G4 на
+  настоящий валидатор: `tools/accept.mjs` проверял enum сам, а плагин — нет,
+  поэтому неверное значение в frontmatter проходило молча.
+- `checks: ["properties"]` — норма записана в `metamodel/properties.md`
+  (список `enum_values` у свойства), отдельного INV для неё нет.
 ## [ITER-2026-11-14-9] — 2026-11-14 · schemaVersion 1.3.0 → 1.4.0
 - Добавлены настройки `logLevel` (`silent` | `error` | `warn` | `info` |
   `debug`, default `info`) и `logToConsole` (boolean, default `true`).

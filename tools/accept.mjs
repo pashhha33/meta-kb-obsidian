@@ -1,65 +1,132 @@
-// accept.mjs — ворота G4 (headless): приёмка на fixtures/vault по контракту.
+// accept.mjs — ворота G4: приёмка на fixtures/vault **тем же валидатором**, что
+// видит пользователь плагина.
 //
-// Модель: файлы с префиксом `broken_` обязаны дать хотя бы одну находку
-// (error или warning); остальные файлы обязаны пройти без ошибок. Скрипт
-// зелёный, только когда фикстуры ведут себя как задумано (assertion-режим).
+// Модель: файл с маркером `<!-- expect: rule_key[, rule_key] -->` обязан дать
+// находку по каждому указанному правилу; файлы без маркера — не давать ошибок
+// (предупреждения допустимы).
 //
-// Проверки: обязательные ключи (id/type/title), известность типа, значения
-// enum, разрешение канонических ссылок [[...]] внутри fixture-хранилища.
+// Почему валидатор берётся из собранного бандла: собственные проверки в этом
+// скрипте были второй реализацией правил и неизбежно расходились бы с
+// `plugin/src/core/validation.ts`. Здесь только ожидания, а правила — в плагине.
 //
-// Запуск:  node tools/accept.mjs
+// Запуск:  node tools/accept.mjs   (сначала: cd plugin && npm run build)
 import { readFileSync, readdirSync, existsSync } from "node:fs";
+import { createRequire } from "node:module";
+import Module from "node:module";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const root = join(__dirname, "..");
 
-const schemaPath = join(root, "schema", "metamodel.json");
-if (!existsSync(schemaPath)) {
-	console.error(`accept: missing ${schemaPath}`);
+const bundlePath = join(root, "plugin", "main.js");
+if (!existsSync(bundlePath)) {
+	console.error(
+		"accept FAILED — plugin/main.js не найден. Соберите: cd plugin && npm run build",
+	);
 	process.exit(1);
-}
-const schema = JSON.parse(readFileSync(schemaPath, "utf8"));
-
-const knownTypes = new Set([
-	...schema.metatypes.map((t) => t.type_value),
-	...schema.types.map((t) => t.type_value),
-]);
-
-const enumByKey = new Map();
-for (const p of [...schema.universalProperties, ...schema.properties]) {
-	if (p.enum_values) enumByKey.set(p.property_key, new Set(p.enum_values));
 }
 
 const vaultDir = join(root, "fixtures", "vault");
 if (!existsSync(vaultDir)) {
-	console.error(`accept: missing ${vaultDir}`);
+	console.error(`accept FAILED — нет ${vaultDir}`);
 	process.exit(1);
 }
-const files = readdirSync(vaultDir).filter((f) => f.endsWith(".md"));
-const stems = new Set(files.map((f) => f.replace(/\.md$/, "")));
 
+// --- валидатор из бандла -------------------------------------------------------
+// Заглушка `obsidian` нужна потому, что main.js импортирует API Obsidian.
+const STUB_EXPORTS = [
+	"Plugin",
+	"ItemView",
+	"PluginSettingTab",
+	"Modal",
+	"Setting",
+	"Notice",
+	"TFile",
+	"TFolder",
+	"WorkspaceLeaf",
+	"Events",
+	"Component",
+	"App",
+	"Vault",
+	"MetadataCache",
+	"FileSystemAdapter",
+	"MarkdownView",
+	"MarkdownRenderer",
+	"Menu",
+	"SuggestModal",
+	"FuzzySuggestModal",
+	"Platform",
+];
+
+class StubBase {}
+const obsidianStub = { __esModule: true };
+for (const name of STUB_EXPORTS) {
+	obsidianStub[name] = class Stub extends StubBase {};
+}
+obsidianStub.debounce = (fn) => fn;
+obsidianStub.normalizePath = (path) => String(path);
+obsidianStub.setIcon = () => {};
+obsidianStub.requestUrl = async () => ({});
+
+const originalLoad = Module._load;
+Module._load = function (request, parent, isMain) {
+	if (request === "obsidian") {
+		return obsidianStub;
+	}
+	return originalLoad.apply(this, arguments);
+};
+
+let bundle;
+try {
+	bundle = createRequire(import.meta.url)(bundlePath);
+} catch (err) {
+	console.error("accept FAILED — бандл не загружается:\n");
+	console.error(err && err.stack ? err.stack : String(err));
+	process.exit(1);
+} finally {
+	Module._load = originalLoad;
+}
+
+const validateVault =
+	bundle && typeof bundle.validateVault === "function"
+		? bundle.validateVault
+		: bundle?.default?.validateVault;
+if (typeof validateVault !== "function") {
+	console.error(
+		"accept FAILED — main.js не экспортирует validateVault. " +
+			"Проверьте `export { validateVault } from \"./core/validation\"` в src/main.ts",
+	);
+	process.exit(1);
+}
+
+// --- разбор фикстур ------------------------------------------------------------
 /** Минимальный парсер YAML-frontmatter (скаляры + списки `- item`). */
 function parseFrontmatter(text) {
-	const m = text.match(/^---\r?\n([\s\S]*?)\r?\n---/);
-	if (!m) return {};
+	const match = text.match(/^---\r?\n([\s\S]*?)\r?\n---/);
+	if (!match) {
+		return {};
+	}
 	const out = {};
 	let current = null;
-	const strip = (s) => {
-		const t = s.trim();
-		return t.startsWith('"') && t.endsWith('"') ? t.slice(1, -1) : t;
+	const strip = (value) => {
+		const trimmed = value.trim();
+		return trimmed.startsWith('"') && trimmed.endsWith('"')
+			? trimmed.slice(1, -1)
+			: trimmed;
 	};
-	for (const line of m[1].split(/\r?\n/)) {
-		const kv = line.match(/^([A-Za-z0-9_-]+):\s*(.*)$/);
-		if (kv) {
-			current = kv[1];
-			const val = strip(kv[2]);
-			out[current] = val === "" ? [] : val;
+	for (const line of match[1].split(/\r?\n/)) {
+		const pair = line.match(/^([A-Za-z0-9_-]+):\s*(.*)$/);
+		if (pair) {
+			current = pair[1];
+			const value = strip(pair[2]);
+			out[current] = value === "" ? [] : value;
 		} else {
 			const item = line.match(/^\s*-\s+(.*)$/);
 			if (item && current) {
-				if (!Array.isArray(out[current])) out[current] = [];
+				if (!Array.isArray(out[current])) {
+					out[current] = [];
+				}
 				out[current].push(strip(item[1]));
 			}
 		}
@@ -67,66 +134,95 @@ function parseFrontmatter(text) {
 	return out;
 }
 
-const LINK_RE = /^\[\[([^\]|]+)(?:\|[^\]]+)?\]\]$/;
-const findings = new Map(); // file -> { errors: [], warnings: [] }
+const EXPECT_RE = /<!--\s*expect:\s*([^>]+?)\s*-->/;
+const asString = (value) => (typeof value === "string" ? value : "");
+const asList = (value) =>
+	Array.isArray(value) ? value.filter((item) => typeof item === "string") : [];
 
-for (const f of files) {
-	const text = readFileSync(join(vaultDir, f), "utf8");
-	const fm = parseFrontmatter(text);
-	const rec = { errors: [], warnings: [] };
-	findings.set(f, rec);
+const files = readdirSync(vaultDir)
+	.filter((name) => name.endsWith(".md"))
+	.sort();
 
-	if (!fm.id) rec.errors.push("нет id");
-	if (!fm.type) rec.errors.push("нет type");
-	if (!fm.title) rec.errors.push("нет title");
-	if (fm.type && !knownTypes.has(fm.type)) rec.errors.push(`неизвестный тип "${fm.type}"`);
-
-	for (const [k, v] of Object.entries(fm)) {
-		const ev = enumByKey.get(k);
-		if (ev) {
-			for (const x of Array.isArray(v) ? v : [v]) {
-				if (!ev.has(x)) rec.errors.push(`enum ${k} содержит "${x}"`);
-			}
-		}
-		for (const x of Array.isArray(v) ? v : [v]) {
-			if (typeof x !== "string") continue;
-			const lm = x.match(LINK_RE);
-			if (lm && !stems.has(lm[1])) rec.warnings.push(`битая ссылка [[${lm[1]}]] в ${k}`);
-		}
+const records = [];
+const expectations = new Map(); // stem → rule keys
+for (const name of files) {
+	const text = readFileSync(join(vaultDir, name), "utf8");
+	const stem = name.replace(/\.md$/, "");
+	const frontmatter = parseFrontmatter(text);
+	const marker = text.match(EXPECT_RE);
+	if (marker) {
+		expectations.set(
+			stem,
+			marker[1]
+				.split(",")
+				.map((rule) => rule.trim())
+				.filter((rule) => rule !== ""),
+		);
 	}
+	records.push({
+		path: stem,
+		id: asString(frontmatter.id),
+		type: asString(frontmatter.type),
+		title: asString(frontmatter.title),
+		aliases: asList(frontmatter.aliases),
+		status: asString(frontmatter.status) || undefined,
+		layer: asString(frontmatter.layer) || undefined,
+		props: frontmatter,
+		body: "",
+	});
 }
 
+const result = validateVault(records, { imagePaths: [] });
+
 // --- assertion-режим -----------------------------------------------------------
+const byPath = new Map();
+for (const finding of result.findings) {
+	const list = byPath.get(finding.path) ?? [];
+	list.push(finding);
+	byPath.set(finding.path, list);
+}
+
 let failed = false;
-let expectedBroken = 0;
-for (const f of files) {
-	const rec = findings.get(f);
-	const isBroken = f.startsWith("broken_");
-	if (isBroken) {
-		expectedBroken++;
-		if (rec.errors.length === 0 && rec.warnings.length === 0) {
-			console.error(`ASSERT ${f}: ожидалась находка, но файл чист`);
-			failed = true;
+for (const record of records) {
+	const findings = byPath.get(record.path) ?? [];
+	const expected = expectations.get(record.path);
+	const errors = findings.filter((item) => item.severity === "error");
+
+	if (expected) {
+		for (const rule of expected) {
+			if (!findings.some((item) => item.rule_key === rule)) {
+				console.error(
+					`ASSERT ${record.path}: ожидалась находка «${rule}», а её нет ` +
+						`(получено: ${findings.map((item) => item.rule_key).join(", ") || "ничего"})`,
+				);
+				failed = true;
+			}
 		}
-	} else if (rec.errors.length > 0) {
-		console.error(`ASSERT ${f}: не должен давать ошибок — ${rec.errors.join("; ")}`);
+	} else if (errors.length > 0) {
+		console.error(
+			`ASSERT ${record.path}: не должен давать ошибок — ` +
+				errors.map((item) => `${item.rule_key}: ${item.message}`).join("; "),
+		);
 		failed = true;
 	}
 }
 
-const totalErrors = [...findings.values()].reduce((n, r) => n + r.errors.length, 0);
-const totalWarnings = [...findings.values()].reduce((n, r) => n + r.warnings.length, 0);
-
 console.log(
-	`accept: ${files.length} заметок · broken=${expectedBroken} · errors=${totalErrors} · warnings=${totalWarnings}`,
+	`accept: ${records.length} заметок · с ожиданиями=${expectations.size} · ` +
+		`errors=${result.errors} · warnings=${result.warnings}`,
 );
-for (const [f, r] of findings) {
-	for (const e of r.errors) console.error(`  error  ${f}: ${e}`);
-	for (const w of r.warnings) console.log(`  warn   ${f}: ${w}`);
+for (const finding of result.findings) {
+	const line = `  ${finding.severity === "error" ? "error" : "warn "} ` +
+		`${finding.path}: ${finding.rule_key}${finding.field ? ` (${finding.field})` : ""} — ${finding.message}`;
+	if (finding.severity === "error") {
+		console.error(line);
+	} else {
+		console.log(line);
+	}
 }
 
 if (failed) {
 	console.error("accept FAILED — фикстуры ведут себя не так, как задумано");
 	process.exit(1);
 }
-console.log("accept OK — фикстуры соответствуют ожиданиям");
+console.log("accept OK — фикстуры соответствуют ожиданиям (валидатор плагина)");

@@ -125,7 +125,18 @@ function toArrayBuffer(bytes: Uint8Array): ArrayBuffer {
  * ITER-2026-11-14-1: создание объектов (`{type}_{id}.md` с универсальным ядром
  * свойств) и bootstrap метамодели (10 метатипов + определения 29 типов ядра).
  */
+
 export default class MetaKBPlugin extends Plugin {
+	/**
+	 * Валидатор для инструментов (ворота G4).
+	 *
+	 * Живёт статическим полем, а не именованным экспортом: esbuild-футер
+	 * заменяет `module.exports` на сам класс, и рядом стоящие экспорты
+	 * теряются. Через класс тот же код доступен `tools/accept.mjs`,
+	 * поэтому G4 проверяет правила, которые видит пользователь.
+	 */
+	static readonly validateVault = validateVault;
+
 	/** Настройки плагина (загружаются в onload). */
 	public override settings!: MetaKBSettings;
 

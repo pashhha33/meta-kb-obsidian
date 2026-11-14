@@ -20,6 +20,7 @@ import {
 	relationDef,
 	requiredFor,
 	resolveField,
+	typeChain,
 } from "./metamodel";
 import type { RelationDef } from "./metamodel";
 import { effectiveSchema } from "./schema";
@@ -39,6 +40,7 @@ export const IMPLEMENTED_RULE_KEYS: string[] = [
 	"trigger-values-subset",
 	"expansion-keys-exist",
 	"link-target-exists",
+	"enum-value-in-set",
 	"unique-machine-keys",
 	"relation-acyclic",
 	"relation-endpoints-match",
@@ -266,6 +268,43 @@ function ruleAttachmentUnique(ctx: Context): Finding[] {
 					`файл «${path}» привязан к ${records.length} обёрткам (C-IMG-05)`,
 				),
 			);
+		}
+	}
+	return out;
+}
+
+/**
+ * `enum-value-in-set` — значение enum-свойства входит в `enum_values`
+ * контракта (`metamodel/properties.md`).
+ *
+ * Проверяются и системные ключи (`status`, `layer`): их enum тоже объявлен в
+ * контракте, а испортить значение можно руками в frontmatter.
+ */
+function ruleEnumValues(record: ObjectRecord): Finding[] {
+	const out: Finding[] = [];
+	for (const key of Object.keys(record.props)) {
+		const field = resolveField(key, record.props[key]);
+		if (field.valueType !== "enum" && field.valueType !== "list<enum>") {
+			continue;
+		}
+		const allowed = propertyDef(key)?.enum_values ?? field.enumValues;
+		if (!allowed || allowed.length === 0) {
+			continue; // enum без списка значений проверять нечем
+		}
+		const set = new Set(allowed);
+		for (const value of stringList(record.props[key])) {
+			if (!set.has(value)) {
+				out.push(
+					finding(
+						record,
+						"enum-value-in-set",
+						"error",
+						key,
+						`значение «${value}» отсутствует в списке «${key}» ` +
+							`(${allowed.length} значений)`,
+					),
+				);
+			}
 		}
 	}
 	return out;
@@ -719,10 +758,13 @@ function ruleRelations(record: ObjectRecord, ctx: Context): Finding[] {
 				),
 			);
 		}
-		if (
-			!relation.source_type.includes("*") &&
-			!relation.source_type.includes(record.type)
-		) {
+		// Область отношения задаётся базовыми типами: `book` наследует
+		// `source`, поэтому проверяем всю цепочку `extends` (INV-18, INV-20).
+		const sourceChain = typeChain(record.type);
+		const sourceOk =
+			relation.source_type.includes("*") ||
+			relation.source_type.some((allowed) => sourceChain.includes(allowed));
+		if (!sourceOk) {
 			out.push(
 				finding(
 					record,
@@ -739,10 +781,11 @@ function ruleRelations(record: ObjectRecord, ctx: Context): Finding[] {
 			if (!target) {
 				continue; // отсутствие цели — link-target-exists
 			}
-			if (
-				!relation.target_type.includes("*") &&
-				!relation.target_type.includes(target.type)
-			) {
+			const targetChain = typeChain(target.type);
+			const targetOk =
+				relation.target_type.includes("*") ||
+				relation.target_type.some((allowed) => targetChain.includes(allowed));
+			if (!targetOk) {
 				out.push(
 					finding(
 						record,
@@ -1019,6 +1062,7 @@ export function validateVault(
 		findings.push(...ruleLinks(record, ctx));
 		findings.push(...ruleInactiveField(record, ctx));
 		findings.push(...ruleDefinedBy(record, ctx));
+		findings.push(...ruleEnumValues(record));
 		findings.push(...ruleFieldExpansion(record));
 		findings.push(...ruleRelations(record, ctx));
 		findings.push(...ruleFacet(record, ctx));

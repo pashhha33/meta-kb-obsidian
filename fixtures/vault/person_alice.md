@@ -1,7 +1,9 @@
 ---
-id: person-alice
+id: alice
 type: person
 title: Алиса
+aliases:
+  - Алиса
 occupation:
   - politician
 office:
