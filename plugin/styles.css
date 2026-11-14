@@ -440,3 +440,77 @@ textarea.meta-kb-input {
 	font-family: var(--font-monospace);
 }
 
+/* --- Галерея изображений (создание обёртки, C-IMG-04) --- */
+.meta-kb-gallery {
+	display: grid;
+	grid-template-columns: repeat(auto-fill, minmax(96px, 1fr));
+	gap: 6px;
+	max-height: 280px;
+	overflow: auto;
+	padding: 2px;
+	margin-bottom: 8px;
+}
+
+.meta-kb-thumb {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	gap: 2px;
+	padding: 4px;
+	border: 1px solid var(--background-modifier-border);
+	border-radius: var(--radius-s);
+	background: var(--background-secondary);
+	box-shadow: none;
+	cursor: pointer;
+	overflow: hidden;
+}
+
+.meta-kb-thumb:hover {
+	border-color: var(--interactive-accent);
+	background: var(--background-modifier-hover);
+}
+
+.meta-kb-thumb.is-selected {
+	border-color: var(--interactive-accent);
+	box-shadow: 0 0 0 1px var(--interactive-accent);
+}
+
+.meta-kb-thumb.is-wrapped {
+	opacity: 0.6;
+}
+
+.meta-kb-thumb img {
+	width: 100%;
+	height: 64px;
+	object-fit: cover;
+	border-radius: var(--radius-s);
+}
+
+.meta-kb-thumb-fallback {
+	width: 100%;
+	height: 64px;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	color: var(--text-faint);
+	font-size: var(--font-ui-smaller);
+	word-break: break-all;
+	text-align: center;
+}
+
+.meta-kb-thumb-name {
+	font-size: var(--font-ui-smaller);
+	color: var(--text-muted);
+	max-width: 100%;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.meta-kb-thumb-badge {
+	font-size: var(--font-ui-smaller);
+	color: var(--text-faint);
+	font-style: italic;
+}
+
+

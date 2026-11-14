@@ -17,8 +17,10 @@ import { buildForm } from "../core/form";
 import type { FormModel, FormRow } from "../core/form";
 import { suggestLinks } from "../core/suggest";
 import type { SuggestCandidate } from "../core/suggest";
+import { decideAttachment } from "../core/attachment";
 import { FieldRow } from "./FieldRow";
 import { openFieldModal } from "./modals/FieldModal";
+import { ImageFilePickerModal } from "./modals/ImageFilePickerModal";
 
 import type { MetaKBPluginAPI } from "../plugin-types";
 
@@ -321,6 +323,13 @@ export class MetaKBPropertiesView extends ItemView {
 		rawValue: unknown,
 		file: TFile,
 	): void {
+		// `attachment` — путь к файлу: вместо ручного текста даём выбор из
+		// хранилища (C-IMG-04) с проверкой «один файл → одна обёртка» (C-IMG-05).
+		if (field.key === "attachment") {
+			this.openAttachmentPicker(field, rawValue, file);
+			return;
+		}
+
 		const valueType = field.valueType;
 		const isMedia = valueType === "media" || valueType === "list<media>";
 		const targetTypes = isMedia
@@ -338,6 +347,37 @@ export class MetaKBPropertiesView extends ItemView {
 				suggestLinks(registry.all(), query, { targetTypes }),
 			onApply: (value) => this.writeFieldValue(file, field.key, value),
 		});
+	}
+
+	/**
+	 * Выбор файла-вложения из хранилища (C-IMG-04): галерея миниатюр + путь.
+	 * Свой собственный путь разрешён, чужой — блокируется (C-IMG-05).
+	 */
+	private openAttachmentPicker(
+		field: ResolvedField,
+		rawValue: unknown,
+		file: TFile,
+	): void {
+		const frontmatter = this.app.metadataCache.getFileCache(file)?.frontmatter;
+		const ownerId =
+			frontmatter && typeof frontmatter["id"] === "string"
+				? (frontmatter["id"] as string)
+				: null;
+
+		new ImageFilePickerModal(this.app, {
+			mode: "pick-attachment",
+			imagePaths: this.plugin.listImagePaths(),
+			decide: (path) =>
+				decideAttachment(this.plugin.getAttachmentIndex(), path, ownerId),
+			resourcePath: (path) => this.plugin.resourcePathFor(path),
+			initialPath: typeof rawValue === "string" ? rawValue : "",
+			onSubmit: ({ attachment }) =>
+				this.writeFieldValue(
+					file,
+					field.key,
+					attachment === "" ? undefined : attachment,
+				),
+		}).open();
 	}
 
 	private openLinkTarget(raw: string, source: TFile): void {

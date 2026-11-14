@@ -105,6 +105,18 @@ for (const [k, p] of props) {
   for (const ap of p.applies_to) {
     if (ap !== "*" && !types.has(ap) && !metatypes.has(ap)) fail(`property ${k}: applies_to unknown type ${ap}`);
   }
+  // `required_by_type` — переопределение обязательности для конкретного типа
+  // (INV-24: `attachment` обязателен именно у `image`).
+  if (p.required_by_type) {
+    for (const [tv, req] of Object.entries(p.required_by_type)) {
+      if (tv !== "*" && !types.has(tv) && !metatypes.has(tv)) {
+        fail(`property ${k}: required_by_type ссылается на неизвестный тип ${tv}`);
+      }
+      if (!["always", "conditional", "never"].includes(req)) {
+        fail(`property ${k}: required_by_type["${tv}"] = ${req} вне enum`);
+      }
+    }
+  }
 }
 for (const [k, p] of universal) {
   if (!valueTypes.has(p.value_type)) fail(`universal property ${k}: unknown value_type ${p.value_type}`);

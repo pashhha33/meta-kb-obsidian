@@ -1,6 +1,6 @@
 {
   "$schema": "./metamodel.schema.json",
-  "schemaVersion": "1.1.0",
+  "schemaVersion": "1.2.0",
   "meta": {
     "title": "Metamodel contract (v1)",
     "strategy": "variant C: prose = semantics, this file = machine input for the plugin",
@@ -86,7 +86,7 @@
     { "property_key": "poster", "label": "Постер", "value_type": "media", "required": "never", "applies_to": ["film", "video", "film-series"] },
     { "property_key": "photo", "label": "Фотография", "value_type": "media", "required": "never", "applies_to": ["person", "place", "organization"] },
     { "property_key": "artwork", "label": "Иллюстрации", "value_type": "list<media>", "required": "never", "applies_to": ["note", "source", "event", "place"] },
-    { "property_key": "attachment", "label": "Вложение", "value_type": "string", "required": "conditional", "applies_to": ["file", "source", "note", "image"], "note": "always для image (INV-24)" },
+    { "property_key": "attachment", "label": "Вложение", "value_type": "string", "required": "conditional", "required_by_type": { "image": "always" }, "applies_to": ["file", "source", "note", "image"], "note": "always для image (INV-24)" },
     { "property_key": "roles", "label": "Роли изображения", "value_type": "list<enum>", "required": "never", "applies_to": ["image"], "enum_values": ["cover", "poster", "logo", "illustration", "art", "photo", "icon", "thumbnail"] },
 
     { "property_key": "url", "label": "URL", "value_type": "string", "required": "never", "applies_to": ["source", "organization", "place", "project", "event"] },

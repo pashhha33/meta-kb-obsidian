@@ -61,6 +61,10 @@
           "label": { "type": "string" },
           "value_type": { "type": "string" },
           "required": { "type": "string", "enum": ["always", "conditional", "never"] },
+          "required_by_type": {
+            "type": "object",
+            "additionalProperties": { "type": "string", "enum": ["always", "conditional", "never"] }
+          },
           "computed": { "type": "boolean" },
           "enum_values": { "type": "array", "items": { "type": "string" } }
         }
@@ -77,6 +81,10 @@
           "label": { "type": "string" },
           "value_type": { "type": "string" },
           "required": { "type": "string", "enum": ["always", "conditional", "never"] },
+          "required_by_type": {
+            "type": "object",
+            "additionalProperties": { "type": "string", "enum": ["always", "conditional", "never"] }
+          },
           "applies_to": { "type": "array", "items": { "type": "string" } },
           "enum_values": { "type": "array", "items": { "type": "string" } },
           "computed": { "type": "boolean" },

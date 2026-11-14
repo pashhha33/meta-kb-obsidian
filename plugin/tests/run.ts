@@ -13,3 +13,4 @@ import "./yaml.test";
 import "./create.test";
 import "./bootstrap.test";
 import "./bootstrap-files.test";
+import "./attachment.test";

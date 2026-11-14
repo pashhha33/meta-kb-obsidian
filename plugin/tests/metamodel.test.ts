@@ -7,6 +7,7 @@ import {
 	METATYPES,
 	propertyDef,
 	relationDef,
+	requiredFor,
 } from "../src/core/metamodel";
 
 test("контракт загружен: 14 value_type, 10 метатипов", () => {
@@ -67,4 +68,17 @@ test("propertyDef/relationDef не пусты", () => {
 	assert.ok(propertyDef("occupation"));
 	assert.ok(relationDef("author"));
 	assert.equal(propertyDef("несуществующее"), undefined);
+});
+
+test("requiredFor: attachment обязателен у image (INV-24), условен у file", () => {
+	assert.equal(requiredFor("attachment", "image"), "always");
+	assert.equal(requiredFor("attachment", "file"), "conditional");
+	assert.equal(requiredFor("attachment", "note"), "conditional");
+});
+
+test("requiredFor: наследуется по цепочке extends", () => {
+	// image extends file, поэтому переопределение для image работает напрямую,
+	// а для file берётся базовое значение свойства.
+	assert.equal(requiredFor("title", "person"), "always");
+	assert.equal(requiredFor("несуществующее", "person"), "never");
 });

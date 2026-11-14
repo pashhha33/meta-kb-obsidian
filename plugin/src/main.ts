@@ -13,6 +13,13 @@ import { toObjectRecord } from "./core/loader";
 import { CORE_TYPES } from "./core/metamodel";
 import { buildNewObject, findTypeDefinitionId } from "./core/create";
 import {
+	AttachmentIndex,
+	buildAttachmentIndex,
+	buildImageWrapperPlan,
+	decideAttachment,
+	isImagePath,
+} from "./core/attachment";
+import {
 	isBootstrapped,
 	missingDefinitions,
 	planBootstrap,
@@ -22,6 +29,7 @@ import {
 import { serializeNote } from "./core/yaml";
 import { CreateObjectModal } from "./ui/modals/CreateObjectModal";
 import { BootstrapModal } from "./ui/modals/BootstrapModal";
+import { ImageFilePickerModal } from "./ui/modals/ImageFilePickerModal";
 
 /** Класс на <body>: включает CSS-скрытие core Properties (styles.css). */
 const HIDE_CORE_PROPERTIES_CSS_CLASS = "meta-kb-hide-core-properties";
@@ -41,11 +49,41 @@ export default class MetaKBPlugin extends Plugin {
 
 	/** Индекс объектов vault: id → ObjectRecord. */
 	private registry = new Registry();
+	/** Индекс «файл-вложение → обёртка image» (C-IMG-05). */
+	private attachmentIndex: AttachmentIndex = buildAttachmentIndex([]);
 	private rebuildTimer: number | null = null;
 
 	/** Доступ к Registry для UI (виджет и модалки). */
 	getRegistry(): Registry {
 		return this.registry;
+	}
+
+	/** Индекс обёрток: путь вложения → объект `image`. */
+	getAttachmentIndex(): AttachmentIndex {
+		return this.attachmentIndex;
+	}
+
+	/** Пути всех изображений хранилища (для галереи выбора). */
+	listImagePaths(): string[] {
+		return this.app.vault
+			.getFiles()
+			.map((file) => file.path)
+			.filter((path) => isImagePath(path))
+			.sort((a, b) => a.localeCompare(b));
+	}
+
+	/** URL файла для превью через getResourcePath. */
+	resourcePathFor(path: string): string | null {
+		const file = this.app.vault.getAbstractFileByPath(path);
+		if (!file || !(file instanceof TFile)) {
+			return null;
+		}
+		try {
+			return this.app.vault.getResourcePath(file);
+		} catch (err) {
+			console.warn("Meta KB: getResourcePath", err);
+			return null;
+		}
 	}
 
 	override async onload(): Promise<void> {
@@ -68,6 +106,12 @@ export default class MetaKBPlugin extends Plugin {
 			id: "create-object",
 			name: "Create object",
 			callback: () => this.openCreateObject(),
+		});
+
+		this.addCommand({
+			id: "create-image-wrapper",
+			name: "Create image wrapper",
+			callback: () => this.openImageWrapperPicker(),
 		});
 
 		this.addCommand({
@@ -136,6 +180,7 @@ export default class MetaKBPlugin extends Plugin {
 				}
 			}
 			this.registry = next;
+			this.attachmentIndex = buildAttachmentIndex(next.all());
 		} catch (err) {
 			console.warn("Meta KB: не удалось перестроить Registry", err);
 		}
@@ -186,6 +231,73 @@ export default class MetaKBPlugin extends Plugin {
 		} catch (err) {
 			console.warn("Meta KB: не удалось открыть созданный файл", err);
 		}
+	}
+
+	// --- Обёртка изображения (ADR-003, C-IMG) ------------------------------------
+
+	/**
+	 * Диалог создания обёртки: галерея необёрнутых изображений миниатюрами
+	 * плюс возможность указать путь вручную (C-IMG-04).
+	 */
+	private openImageWrapperPicker(): void {
+		const imagePaths = this.listImagePaths();
+		if (imagePaths.length === 0) {
+			new Notice(
+				"Meta KB: в хранилище нет изображений — добавьте файл-картинку " +
+					"и повторите создание обёртки.",
+				8000,
+			);
+			return;
+		}
+
+		new ImageFilePickerModal(this.app, {
+			mode: "create-wrapper",
+			imagePaths,
+			decide: (path) => decideAttachment(this.attachmentIndex, path, null),
+			resourcePath: (path) => this.resourcePathFor(path),
+			onSubmit: ({ title, attachment }) =>
+				this.createImageWrapper(title, attachment),
+			onOpenExisting: (id) => this.openObjectById(id),
+		}).open();
+	}
+
+	private async createImageWrapper(
+		title: string,
+		attachment: string,
+	): Promise<void> {
+		const definedBy = findTypeDefinitionId(this.registry.all(), "image");
+		const plan = buildImageWrapperPlan({
+			title: title || attachment,
+			attachment,
+			definedBy,
+		});
+		const file = await this.createNote("", plan.filename, plan.frontmatter);
+		if (!file) {
+			return;
+		}
+		new Notice(`Meta KB: создана обёртка ${plan.filename}`);
+		try {
+			await this.app.workspace.getLeaf(true).openFile(file);
+		} catch (err) {
+			console.warn("Meta KB: не удалось открыть обёртку", err);
+		}
+	}
+
+	/** Открыть объект модели по его `id`. */
+	private openObjectById(id: string): void {
+		const record = this.registry.get(id);
+		if (!record) {
+			new Notice(`Meta KB: объект ${id} не найден в Registry.`);
+			return;
+		}
+		const file = this.app.vault
+			.getMarkdownFiles()
+			.find((candidate) => candidate.basename === record.path);
+		if (!file) {
+			new Notice(`Meta KB: файл объекта ${record.path} не найден.`);
+			return;
+		}
+		void this.app.workspace.getLeaf(true).openFile(file);
 	}
 
 	// --- Bootstrap ---------------------------------------------------------------

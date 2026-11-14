@@ -44,6 +44,8 @@ interface PropertyDef {
 	label: string;
 	value_type: string;
 	required?: string;
+	/** Переопределение обязательности для конкретного типа (INV-24). */
+	required_by_type?: Record<string, string>;
 	applies_to?: string[];
 	enum_values?: string[];
 	computed?: boolean;
@@ -291,4 +293,25 @@ export function layerOfInstance(typeValue: string): string {
 /** Слой, в котором живут определения (метатипы и определения типов). */
 export function layerOfDefinition(): string {
 	return "system";
+}
+
+/**
+ * Обязательность свойства для конкретного типа.
+ *
+ * `required` задаётся на свойство, но INV-24 требует разного по типу:
+ * `attachment` обязателен (`always`) именно у `image` и условен у
+ * `file`/`source`/`note`. Переопределение ищется по цепочке `extends`.
+ */
+export function requiredFor(propertyKey: string, typeValue: string): string {
+	const def = propertyByKey.get(propertyKey);
+	if (!def) {
+		return "never";
+	}
+	for (const ancestor of typeChain(typeValue)) {
+		const override = def.required_by_type?.[ancestor];
+		if (override) {
+			return override;
+		}
+	}
+	return def.required ?? "never";
 }

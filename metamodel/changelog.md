@@ -1,5 +1,19 @@
 # Changelog метамодели
 
+## [ITER-2026-11-14-2] — 2026-11-14 · schemaVersion 1.1.0 → 1.2.0
+- **ADR-007:** у свойства появилось поле `required_by_type` — переопределение
+  обязательности для конкретного типа. `attachment` получает
+  `required_by_type: { "image": "always" }`, то есть INV-24 («`attachment`
+  обязателен у `image`») стал машиночитаемым, а не только фразой в
+  `properties.md` §3.1.
+- Поиск обязательности идёт по цепочке `extends` (ближайший предок побеждает),
+  при отсутствии переопределения действует `required` свойства —
+  `requiredFor()` в `plugin/src/core/metamodel.ts`.
+- G2: ключи `required_by_type` обязаны ссылаться на существующие типы, значения —
+  входить в enum `always | conditional | never`.
+- Реализация среза A1 по ADR-003 / C-IMG: создание обёртки с выбором файла,
+  индекс `attachment → image`, запрет второй обёртки на тот же файл (C-IMG-05).
+
 ## [ITER-2026-11-14-1] — 2026-11-14 · schemaVersion 1.0.0 → 1.1.0
 - **Исправление контракта:** у всех 10 метатипов `layer` приведён к `system`
   (types.md §1: «У всех: `type: type`, `layer: system`, `status: accepted»).
