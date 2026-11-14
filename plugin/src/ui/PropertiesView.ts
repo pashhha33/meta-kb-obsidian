@@ -10,9 +10,14 @@ import type { ResolvedField } from "../labels";
 import { formatDatetime } from "../settings";
 import {
 	computeAuthorSheets,
-	computeCharCount,
 	isSignificantChange,
 } from "../core/derived";
+import { bookVolume, countCleanChars } from "../core/volume";
+import {
+	chaptersOf,
+	linkpathOf,
+} from "../core/chapter";
+import type { ObjectRecord } from "../core/loader";
 import { buildForm } from "../core/form";
 import type { FormModel, FormRow } from "../core/form";
 import { candidatesToValue, linksToCandidates, suggestLinks } from "../core/suggest";
@@ -223,15 +228,25 @@ export class MetaKBPropertiesView extends ItemView {
 		if (keys.length === 0) {
 			return {};
 		}
-		let body = "";
+		let content = "";
 		try {
-			body = await this.app.vault.cachedRead(file);
+			content = await this.app.vault.cachedRead(file);
 		} catch (err) {
 			this.plugin.getLogger().warn("Meta KB: не удалось прочитать тело заметки", err);
 		}
 		const values: Record<string, unknown> = {};
 		if (keys.includes("char-count")) {
-			values["char-count"] = computeCharCount(body);
+			// C-CH-09: объём книги — сумма её глав, а не её собственное тело.
+			const record = this.plugin
+				.getRegistry()
+				.all()
+				.find((item) => item.path === file.basename);
+			if (record?.type === "book") {
+				values["char-count"] = (await this.bookVolumeOf(record)).charCount;
+			} else {
+				// C-CH-08: знаки чистого текста, без markdown-разметки.
+				values["char-count"] = countCleanChars(content);
+			}
 		}
 		if (keys.includes("author-sheets")) {
 			const charCount =
@@ -244,6 +259,36 @@ export class MetaKBPropertiesView extends ItemView {
 			);
 		}
 		return values;
+	}
+
+	/**
+	 * Объём книги по её главам (C-CH-09): читаем тела глав и считаем чистый
+	 * текст. Кэш не нужен: `cachedRead` уже не ходит на диск каждый раз.
+	 */
+	private async bookVolumeOf(record: ObjectRecord): Promise<{
+		charCount: number;
+		authorSheets: number;
+	}> {
+		const counts: number[] = [];
+		for (const { record: chapter } of chaptersOf(
+			this.plugin.getRegistry().all(),
+			linkpathOf(record),
+		)) {
+			const file = this.app.vault
+				.getMarkdownFiles()
+				.find((item) => item.basename === chapter.path);
+			if (!file) {
+				continue;
+			}
+			try {
+				counts.push(countCleanChars(await this.app.vault.cachedRead(file)));
+			} catch (err) {
+				this.plugin
+					.getLogger()
+					.warn(`Meta KB: не удалось прочитать главу ${chapter.path}`, err);
+			}
+		}
+		return bookVolume(counts, this.plugin.settings.authorSheetChars);
 	}
 
 	private renderSections(

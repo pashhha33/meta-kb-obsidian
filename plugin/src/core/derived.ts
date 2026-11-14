@@ -31,7 +31,12 @@ export function withUpdatedAt(
 	return { ...frontmatter, updated_at: now.toISOString() };
 }
 
-/** Знаков в теле заметки (по код-поинтам, а не UTF-16). */
+/**
+ * Знаков в теле заметки (по код-поинтам, а не UTF-16).
+ *
+ * Считает **сырое** тело, включая разметку и frontmatter. Для `char-count`
+ * по C-CH-08 нужен чистый текст — см. `countCleanChars` в `core/volume.ts`.
+ */
 export function computeCharCount(body: string): number {
 	return [...body].length;
 }

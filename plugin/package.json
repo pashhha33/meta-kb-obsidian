@@ -1,6 +1,6 @@
 {
   "name": "meta-kb",
-  "version": "0.6.0",
+  "version": "0.7.0",
   "description": "Obsidian plugin for personal knowledge base metamodel",
   "main": "main.js",
   "scripts": {

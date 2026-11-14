@@ -67,6 +67,7 @@ import {
 	bookLinkpathOf,
 	booksForPicker,
 	CHAPTER_TYPE,
+	chaptersOf,
 	findChapter,
 	linkpathOf,
 	neighbourPosition,
@@ -74,6 +75,7 @@ import {
 	positionOf,
 	resolveChapterTitle,
 } from "./core/chapter";
+import { bookVolume, countCleanChars } from "./core/volume";
 import { validateVault } from "./core/validation";
 import { Logger, normalizeLogLevel } from "./core/logging";
 import type { LogEntry } from "./core/logging";
@@ -83,6 +85,9 @@ const HIDE_CORE_PROPERTIES_CSS_CLASS = "meta-kb-hide-core-properties";
 
 /** Задержка пересборки Registry после изменений vault. */
 const REGISTRY_REBUILD_DEBOUNCE_MS = 300;
+
+/** Задержка пересчёта объёма книги после правки главы (C-CH-10). */
+const BOOK_VOLUME_DEBOUNCE_MS = 2500;
 
 /** Тело заметки: всё после закрывающего `---` frontmatter. */
 function noteBody(content: string): string {
@@ -131,6 +136,8 @@ export default class MetaKBPlugin extends Plugin {
 	private rebuildTimer: number | null = null;
 	/** Тела обёрток уже выровнены в этой сессии (см. backfillWrapperBodies). */
 	private bodiesBackfilled = false;
+	/** Отложенные пересчёты книг: linkpath книги → таймер. */
+	private readonly bookVolumeTimers = new Map<string, number>();
 	/** Журнал плагина: буфер записей + необязательный вывод в консоль. */
 	private readonly logger = new Logger();
 
@@ -326,6 +333,25 @@ export default class MetaKBPlugin extends Plugin {
 		this.registerEvent(this.app.metadataCache.on("resolved", schedule));
 		this.registerEvent(this.app.vault.on("delete", schedule));
 		this.registerEvent(this.app.vault.on("rename", schedule));
+
+		// C-CH-08/10: правка главы пересчитывает её объём и объём книги.
+		const onChapterChange = (file: TFile): void => {
+			void this.refreshChapterVolume(file);
+		};
+		this.registerEvent(
+			this.app.vault.on("modify", (file) => {
+				if (file instanceof TFile) {
+					onChapterChange(file);
+				}
+			}),
+		);
+		this.registerEvent(
+			this.app.vault.on("create", (file) => {
+				if (file instanceof TFile) {
+					onChapterChange(file);
+				}
+			}),
+		);
 
 		// C-IMG-01: embed обёртки показывает само изображение из `attachment`.
 		this.registerMarkdownPostProcessor((element, context) => {
@@ -610,6 +636,101 @@ export default class MetaKBPlugin extends Plugin {
 			return;
 		}
 		await this.app.workspace.getLeaf(true).openFile(file);
+	}
+
+	/**
+	 * Пересчитать объём главы и её книги (C-CH-08, C-CH-10).
+	 *
+	 * `char-count` главы — знаки чистого текста её тела; `char-count` книги —
+	 * сумма глав, `author-sheets` — по размеру авторского листа из настроек.
+	 * Пишем только при изменении значения, иначе каждое сохранение порождало бы
+	 * новую запись в файл.
+	 */
+	private async refreshChapterVolume(file: TFile): Promise<void> {
+		const record = this.registry
+			.all()
+			.find((item) => item.path === file.basename);
+		if (!record || record.type !== CHAPTER_TYPE) {
+			return;
+		}
+		let body = "";
+		try {
+			body = await this.app.vault.cachedRead(file);
+		} catch (err) {
+			this.logger.warn("не удалось прочитать главу для подсчёта", err);
+			return;
+		}
+		const charCount = countCleanChars(body);
+		if (Number(record.props["char-count"]) !== charCount) {
+			try {
+				await this.app.fileManager.processFrontMatter(file, (fm) => {
+					fm["char-count"] = charCount;
+				});
+			} catch (err) {
+				this.logger.warn("не удалось записать char-count главы", err);
+			}
+		}
+		const book = bookLinkpathOf(record);
+		if (book !== "") {
+			this.scheduleBookVolume(book);
+		}
+	}
+
+	/** Отложенный пересчёт книги: серия правок главы даёт одну запись. */
+	private scheduleBookVolume(bookLinkpath: string): void {
+		const existing = this.bookVolumeTimers.get(bookLinkpath);
+		if (existing !== undefined) {
+			window.clearTimeout(existing);
+		}
+		const timer = window.setTimeout(() => {
+			this.bookVolumeTimers.delete(bookLinkpath);
+			void this.refreshBookVolume(bookLinkpath);
+		}, BOOK_VOLUME_DEBOUNCE_MS);
+		this.bookVolumeTimers.set(bookLinkpath, timer);
+	}
+
+	/** Пересчитать объём книги по её главам (C-CH-09, C-CH-10). */
+	private async refreshBookVolume(bookLinkpath: string): Promise<void> {
+		const records = this.registry.all();
+		const book = records.find((item) => linkpathOf(item) === bookLinkpath);
+		if (!book) {
+			return;
+		}
+		const file = this.fileByBasename(book.path);
+		if (!file) {
+			return;
+		}
+
+		const counts: number[] = [];
+		for (const { record } of chaptersOf(records, bookLinkpath)) {
+			const chapterFile = this.fileByBasename(record.path);
+			if (!chapterFile) {
+				continue;
+			}
+			try {
+				counts.push(countCleanChars(await this.app.vault.cachedRead(chapterFile)));
+			} catch (err) {
+				this.logger.warn(`не удалось прочитать главу ${record.path}`, err);
+			}
+		}
+		const volume = bookVolume(counts, this.settings.authorSheetChars);
+
+		try {
+			await this.app.fileManager.processFrontMatter(file, (fm) => {
+				fm["char-count"] = volume.charCount;
+				fm["author-sheets"] = volume.authorSheets;
+				fm["updated_at"] = new Date().toISOString();
+			});
+		} catch (err) {
+			this.logger.warn("не удалось записать объём книги", err);
+			return;
+		}
+		this.logger.debug("объём книги пересчитан", {
+			book: book.path,
+			chapters: counts.length,
+			charCount: volume.charCount,
+			authorSheets: volume.authorSheets,
+		});
 	}
 
 	// --- Окно команд -------------------------------------------------------------
