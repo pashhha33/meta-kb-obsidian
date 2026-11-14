@@ -521,6 +521,73 @@ textarea.meta-kb-input {
 	font-variant-numeric: tabular-nums;
 }
 
+/* --- Журнал плагина --- */
+.meta-kb-log-modal {
+	width: min(720px, 94vw);
+}
+
+.meta-kb-log-list {
+	display: flex;
+	flex-direction: column;
+	gap: 4px;
+	max-height: 50vh;
+	overflow: auto;
+	font-family: var(--font-monospace);
+	font-size: var(--font-ui-smaller);
+}
+
+.meta-kb-log-entry {
+	padding: 4px 6px;
+	border-left: 3px solid var(--background-modifier-border);
+	background-color: var(--background-secondary);
+	border-radius: var(--radius-s);
+}
+
+.meta-kb-log-entry.is-error {
+	border-left-color: var(--text-error);
+}
+
+.meta-kb-log-entry.is-warn {
+	border-left-color: var(--text-warning);
+}
+
+.meta-kb-log-entry.is-info {
+	border-left-color: var(--interactive-accent);
+}
+
+.meta-kb-log-entry.is-debug {
+	border-left-color: var(--text-faint);
+	opacity: 0.8;
+}
+
+.meta-kb-log-head {
+	display: flex;
+	align-items: baseline;
+	gap: 8px;
+}
+
+.meta-kb-log-time {
+	flex: none;
+	color: var(--text-faint);
+}
+
+.meta-kb-log-level {
+	flex: none;
+	color: var(--text-muted);
+}
+
+.meta-kb-log-message {
+	min-width: 0;
+	word-break: break-word;
+}
+
+.meta-kb-log-details {
+	margin-top: 2px;
+	color: var(--text-muted);
+	white-space: pre-wrap;
+	word-break: break-word;
+}
+
 /* --- Окно команд плагина --- */
 .meta-kb-commands {
 	width: min(560px, 92vw);

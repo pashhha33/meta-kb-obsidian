@@ -152,7 +152,7 @@ export class MetaKBPropertiesView extends ItemView {
 		try {
 			frontmatter = this.app.metadataCache.getFileCache(file)?.frontmatter;
 		} catch (err) {
-			console.warn("Meta KB: не удалось прочитать кэш метаданных", err);
+			this.plugin.getLogger().warn("Meta KB: не удалось прочитать кэш метаданных", err);
 			frontmatter = undefined;
 		}
 
@@ -206,7 +206,7 @@ export class MetaKBPropertiesView extends ItemView {
 		try {
 			this.renderSections(root, file, form, computed);
 		} catch (err) {
-			console.error("Meta KB: ошибка отрисовки виджета", err);
+			this.plugin.getLogger().error("Meta KB: ошибка отрисовки виджета", err);
 			root.createEl("div", {
 				cls: "meta-kb-empty",
 				text: "Не удалось отобразить свойства. Подробности в консоли.",
@@ -227,7 +227,7 @@ export class MetaKBPropertiesView extends ItemView {
 		try {
 			body = await this.app.vault.cachedRead(file);
 		} catch (err) {
-			console.warn("Meta KB: не удалось прочитать тело заметки", err);
+			this.plugin.getLogger().warn("Meta KB: не удалось прочитать тело заметки", err);
 		}
 		const values: Record<string, unknown> = {};
 		if (keys.includes("char-count")) {
@@ -351,7 +351,7 @@ export class MetaKBPropertiesView extends ItemView {
 				file.basename,
 			);
 		} catch (err) {
-			console.warn("Meta KB: не удалось проверить заметку", err);
+			this.plugin.getLogger().warn("Meta KB: не удалось проверить заметку", err);
 			return;
 		}
 		if (findings.length === 0) {
@@ -412,6 +412,8 @@ export class MetaKBPropertiesView extends ItemView {
 			suggest: (query: string): SuggestCandidate[] =>
 				suggestLinks(registry.all(), query, { targetTypes }),
 			onApply: (value) => this.writeFieldValue(file, field.key, value),
+			log: (message, details) =>
+				this.plugin.getLogger().error(message, details),
 		});
 	}
 
@@ -546,7 +548,7 @@ export class MetaKBPropertiesView extends ItemView {
 				);
 			}
 		} catch (err) {
-			console.error("Meta KB: ошибка записи frontmatter", err);
+			this.plugin.getLogger().error("Meta KB: ошибка записи frontmatter", err);
 			new Notice(`Meta KB: не удалось записать поле «${key}»`);
 		}
 	}
@@ -578,7 +580,7 @@ export class MetaKBPropertiesView extends ItemView {
 			const separator = head === "" || head.endsWith("\n") ? "" : "\n";
 			await this.app.vault.modify(file, `${head}${separator}${embed}\n`);
 		} catch (err) {
-			console.warn(`Meta KB: не удалось синхронизировать тело ${file.path}`, err);
+			this.plugin.getLogger().warn(`Meta KB: не удалось синхронизировать тело ${file.path}`, err);
 		}
 	}
 }

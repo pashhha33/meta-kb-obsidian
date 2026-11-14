@@ -11,6 +11,13 @@ import {
 	THUMBNAIL_SIZE_MIN,
 } from "./core/thumbnails";
 import type { ThumbnailAspect } from "./core/thumbnails";
+import {
+	DEFAULT_LOG_LEVEL,
+	LOG_LEVELS,
+	LOG_LEVEL_LABELS,
+	normalizeLogLevel,
+} from "./core/logging";
+import type { LogLevel } from "./core/logging";
 
 export { formatDatetime, parseDatetimeOffset } from "./core/datetime";
 export type { DatetimeDisplay, DatetimeFormatOptions } from "./core/datetime";
@@ -45,6 +52,13 @@ export interface MetaKBSettings {
 	thumbnailSize: number;
 	/** Пропорции миниатюр галереи. */
 	thumbnailAspect: ThumbnailAspect;
+	/**
+	 * Подробность лога. `silent` — не писать ничего; `error` — только ошибки;
+	 * `warn` — ошибки и предупреждения; `info` — плюс сообщения; `debug` — всё.
+	 */
+	logLevel: LogLevel;
+	/** Дублировать записи лога в консоль Obsidian (DevTools). */
+	logToConsole: boolean;
 }
 
 export const DEFAULT_SETTINGS: MetaKBSettings = {
@@ -57,6 +71,8 @@ export const DEFAULT_SETTINGS: MetaKBSettings = {
 	bootstrapOffer: true,
 	thumbnailSize: THUMBNAIL_SIZE_DEFAULT,
 	thumbnailAspect: "square",
+	logLevel: DEFAULT_LOG_LEVEL,
+	logToConsole: true,
 };
 
 /** Вкладка настроек плагина. */
@@ -221,6 +237,54 @@ export class MetaKBSettingTab extends PluginSettingTab {
 					await this.plugin.saveSettings();
 				});
 			});
+
+		// --- Логирование -----------------------------------------------------
+
+		new Setting(containerEl).setName("Логирование").setHeading();
+
+		new Setting(containerEl)
+			.setName("Подробность лога")
+			.setDesc(
+				"Что писать в журнал плагина. Влияет и на консоль, и на команду " +
+					"«Показать лог». «Всё, включая отладку» полезно при разборе проблем.",
+			)
+			.addDropdown((dropdown) => {
+				for (const level of LOG_LEVELS) {
+					dropdown.addOption(level, LOG_LEVEL_LABELS[level]);
+				}
+				dropdown.setValue(this.plugin.settings.logLevel);
+				dropdown.onChange(async (value) => {
+					this.plugin.settings.logLevel = normalizeLogLevel(value);
+					this.plugin.applyLogSettings();
+					await this.plugin.saveSettings();
+				});
+			});
+
+		new Setting(containerEl)
+			.setName("Дублировать в консоль")
+			.setDesc(
+				"Писать записи в консоль Obsidian (Ctrl+Shift+I → Console). Если " +
+					"выключено, журнал остаётся доступен только командой «Показать лог».",
+			)
+			.addToggle((toggle) =>
+				toggle
+					.setValue(this.plugin.settings.logToConsole)
+					.onChange(async (value) => {
+						this.plugin.settings.logToConsole = value;
+						this.plugin.applyLogSettings();
+						await this.plugin.saveSettings();
+					}),
+			);
+
+		new Setting(containerEl)
+			.setName("Очистить журнал")
+			.setDesc("Удалить накопленные записи из памяти (файлы не затрагиваются).")
+			.addButton((button) =>
+				button.setButtonText("Очистить").onClick(() => {
+					this.plugin.getLogger().clear();
+					this.notifySettingsChanged();
+				}),
+			);
 	}
 
 	private notifySettingsChanged(): void {

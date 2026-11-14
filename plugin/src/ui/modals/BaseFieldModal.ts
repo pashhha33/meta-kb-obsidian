@@ -29,6 +29,11 @@ export interface FieldModalParams {
 	 * (пустое значение = отсутствие ключа, ontology.md §4.4).
 	 */
 	onApply: (value: unknown) => void | Promise<void>;
+	/**
+	 * Лог плагина. Модалки поля не знают о плагине, поэтому запись передаётся
+	 * колбэком: иначе пришлось бы тащить сюда весь API.
+	 */
+	log?: (message: string, details?: unknown) => void;
 }
 
 /**
@@ -119,7 +124,7 @@ export abstract class FieldModal extends Modal {
 			await this.params.onApply(value);
 			this.close();
 		} catch (err) {
-			console.error("Meta KB: ошибка применения значения поля", err);
+			this.params.log?.("ошибка применения значения поля", err);
 			this.showMessage(
 				`Не удалось записать значение: ${
 					err instanceof Error ? err.message : String(err)

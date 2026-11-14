@@ -14,6 +14,18 @@
 | `strictValidation` | boolean | `false` | error блокирует save (иначе только статус) |
  `hideCoreProperties` | boolean | `true` | скрыть встроенные Properties |
 | `propertiesWidgetLocation` | `sidebar` | `sidebar` | v1 only sidebar |
+| `thumbnailSize` | number | `120` | сторона миниатюры галереи, 48–320 px |
+| `thumbnailAspect` | `square` \| `native` \| `4:3` \| `16:9` | `square` | пропорции миниатюр галереи |
+| `definitionsFolder` | string | `_meta` | папка определений метамодели (bootstrap) |
+| `logLevel` | `silent` \| `error` \| `warn` \| `info` \| `debug` | `info` | подробность журнала плагина |
+| `logToConsole` | boolean | `true` | дублировать журнал в консоль Obsidian |
+
+**Логирование.** Уровень — это порог: `warn` пропускает `warn` и `error`, но
+не `info`; `debug` пропускает всё. Записи хранятся в памяти (последние 500) и
+показываются командой «Показать лог»; в консоль они попадают только при
+включённом `logToConsole`. Файл журнала на диск не пишется: это личное
+хранилище, и молча создавать в нём служебные файлы плагин не должен.
+
 ## Индекс: attachment → image
 
 Назначение: C-IMG-05 (одна обёртка на файл).

@@ -3,6 +3,7 @@ import type { MetaKBSettings } from "./settings";
 import type { Registry } from "./core/registry";
 import type { AttachmentIndex } from "./core/attachment";
 import type { SuggestCandidate } from "./core/suggest";
+import type { Logger } from "./core/logging";
 
 export interface MetaKBPluginAPI extends Plugin {
 	settings: MetaKBSettings;
@@ -21,4 +22,8 @@ export interface MetaKBPluginAPI extends Plugin {
 	 * (INV-23, C-IMG-04). null — создать не удалось.
 	 */
 	ensureImageWrapper(attachment: string): Promise<SuggestCandidate | null>;
+	/** Журнал плагина (уровни, буфер, вывод в консоль). */
+	getLogger(): Logger;
+	/** Применить настройки логирования после их изменения. */
+	applyLogSettings(): void;
 }

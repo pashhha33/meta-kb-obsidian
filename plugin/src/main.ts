@@ -57,6 +57,9 @@ import { BootstrapModal } from "./ui/modals/BootstrapModal";
 import { ImageFilePickerModal } from "./ui/modals/ImageFilePickerModal";
 import { DeleteWrapperModal } from "./ui/modals/DeleteWrapperModal";
 import { CommandsModal } from "./ui/modals/CommandsModal";
+import { LogModal } from "./ui/modals/LogModal";
+import { Logger, normalizeLogLevel } from "./core/logging";
+import type { LogEntry } from "./core/logging";
 
 /** Класс на <body>: включает CSS-скрытие core Properties (styles.css). */
 const HIDE_CORE_PROPERTIES_CSS_CLASS = "meta-kb-hide-core-properties";
@@ -111,10 +114,43 @@ export default class MetaKBPlugin extends Plugin {
 	private rebuildTimer: number | null = null;
 	/** Тела обёрток уже выровнены в этой сессии (см. backfillWrapperBodies). */
 	private bodiesBackfilled = false;
+	/** Журнал плагина: буфер записей + необязательный вывод в консоль. */
+	private readonly logger = new Logger();
 
 	/** Доступ к Registry для UI (виджет и модалки). */
 	getRegistry(): Registry {
 		return this.registry;
+	}
+
+	/** Журнал плагина (см. core/logging.ts). */
+	getLogger(): Logger {
+		return this.logger;
+	}
+
+	/**
+	 * Применить настройки логирования: уровень и вывод в консоль.
+	 * Вызывается после загрузки настроек и при их изменении.
+	 */
+	public applyLogSettings(): void {
+		this.logger.setLevel(this.settings.logLevel);
+		if (!this.settings.logToConsole) {
+			this.logger.setSink(undefined);
+			return;
+		}
+		this.logger.setSink((entry: LogEntry) => {
+			const text = entry.details
+				? `Meta KB: ${entry.message} — ${entry.details}`
+				: `Meta KB: ${entry.message}`;
+			if (entry.level === "error") {
+				console.error(text);
+			} else if (entry.level === "warn") {
+				console.warn(text);
+			} else if (entry.level === "debug") {
+				console.debug(text);
+			} else {
+				console.info(text);
+			}
+		});
 	}
 
 	/** Индекс обёрток: путь вложения → объект `image`. */
@@ -140,13 +176,15 @@ export default class MetaKBPlugin extends Plugin {
 		try {
 			return this.app.vault.getResourcePath(file);
 		} catch (err) {
-			console.warn("Meta KB: getResourcePath", err);
+			this.logger.warn("Meta KB: getResourcePath", err);
 			return null;
 		}
 	}
 
 	override async onload(): Promise<void> {
 		await this.loadSettings();
+		this.applyLogSettings();
+		this.logger.info("плагин загружен", { версия: this.manifest.version });
 
 		this.registerView(
 			VIEW_TYPE_META_KB_PROPERTIES,
@@ -212,6 +250,13 @@ export default class MetaKBPlugin extends Plugin {
 			callback: () => this.openBootstrap(),
 		});
 
+		// Журнал: записи плагина без DevTools.
+		this.addCommand({
+			id: "show-log",
+			name: "Показать лог",
+			callback: () => this.openLog(),
+		});
+
 		this.addSettingTab(new MetaKBSettingTab(this.app, this));
 
 		this.applyHideCoreProperties();
@@ -248,7 +293,7 @@ export default class MetaKBPlugin extends Plugin {
 			}),
 		);
 
-		console.log("Meta KB plugin loaded");
+		this.logger.info("плагин загружен");
 	}
 
 	override onunload(): void {
@@ -257,7 +302,7 @@ export default class MetaKBPlugin extends Plugin {
 			this.rebuildTimer = null;
 		}
 		document.body.classList.remove(HIDE_CORE_PROPERTIES_CSS_CLASS);
-		console.log("Meta KB plugin unloaded");
+		this.logger.info("плагин выгружен");
 	}
 
 	/** Включает/выключает CSS-скрытие core Properties по настройке. */
@@ -269,6 +314,11 @@ export default class MetaKBPlugin extends Plugin {
 	}
 
 	// --- Окно команд -------------------------------------------------------------
+
+	/** Журнал плагина: последние записи с уровнем и подробностями. */
+	private openLog(): void {
+		new LogModal(this.app, this.logger).open();
+	}
 
 	/**
 	 * Сгруппированное окно команд (одна точка входа вместо поиска по палитре).
@@ -347,6 +397,17 @@ export default class MetaKBPlugin extends Plugin {
 					},
 				],
 			},
+			{
+				title: "Диагностика",
+				items: [
+					{
+						label: "Показать лог",
+						description: `Записи плагина (уровень: ${this.settings.logLevel})`,
+						icon: "scroll-text",
+						run: () => this.openLog(),
+					},
+				],
+			},
 		]).open();
 	}
 
@@ -377,7 +438,7 @@ export default class MetaKBPlugin extends Plugin {
 			this.registry = next;
 			this.attachmentIndex = buildAttachmentIndex(next.all());
 		} catch (err) {
-			console.warn("Meta KB: не удалось перестроить Registry", err);
+			this.logger.warn("Meta KB: не удалось перестроить Registry", err);
 		}
 	}
 
@@ -423,7 +484,7 @@ export default class MetaKBPlugin extends Plugin {
 				);
 				filled += 1;
 			} catch (err) {
-				console.warn(`Meta KB: не удалось выровнять тело ${file.path}`, err);
+				this.logger.warn(`Meta KB: не удалось выровнять тело ${file.path}`, err);
 			}
 		}
 		if (filled > 0) {
@@ -495,7 +556,7 @@ export default class MetaKBPlugin extends Plugin {
 		try {
 			await this.app.workspace.getLeaf(true).openFile(file);
 		} catch (err) {
-			console.warn("Meta KB: не удалось открыть созданный файл", err);
+			this.logger.warn("Meta KB: не удалось открыть созданный файл", err);
 		}
 	}
 
@@ -567,7 +628,7 @@ export default class MetaKBPlugin extends Plugin {
 		try {
 			await this.app.workspace.getLeaf(true).openFile(file);
 		} catch (err) {
-			console.warn("Meta KB: не удалось открыть обёртку", err);
+			this.logger.warn("Meta KB: не удалось открыть обёртку", err);
 		}
 	}
 
@@ -666,7 +727,7 @@ export default class MetaKBPlugin extends Plugin {
 					};
 				}
 			} catch (err) {
-				console.warn("Meta KB: Electron clipboard недоступен", err);
+				this.logger.warn("Meta KB: Electron clipboard недоступен", err);
 			}
 		}
 
@@ -686,7 +747,7 @@ export default class MetaKBPlugin extends Plugin {
 				return { bytes: await blob.arrayBuffer(), mime: type };
 			}
 		} catch (err) {
-			console.warn("Meta KB: navigator.clipboard.read() недоступен", err);
+			this.logger.warn("Meta KB: navigator.clipboard.read() недоступен", err);
 		}
 		return null;
 	}
@@ -701,7 +762,7 @@ export default class MetaKBPlugin extends Plugin {
 		try {
 			return req(id);
 		} catch (err) {
-			console.warn(`Meta KB: модуль «${id}» недоступен`, err);
+			this.logger.warn(`Meta KB: модуль «${id}» недоступен`, err);
 			return null;
 		}
 	}
@@ -739,7 +800,7 @@ export default class MetaKBPlugin extends Plugin {
 					name: fileBasename(path),
 				});
 			} catch (err) {
-				console.warn(`Meta KB: не удалось прочитать ${path}`, err);
+				this.logger.warn(`Meta KB: не удалось прочитать ${path}`, err);
 			}
 		}
 		return out;
@@ -837,7 +898,7 @@ export default class MetaKBPlugin extends Plugin {
 				pickImageFilePaths(candidates, (path) => this.isLocalFile(path)),
 			);
 		} catch (err) {
-			console.warn("Meta KB: navigator.clipboard.read() недоступен", err);
+			this.logger.warn("Meta KB: navigator.clipboard.read() недоступен", err);
 		}
 		return [];
 	}
@@ -903,7 +964,7 @@ export default class MetaKBPlugin extends Plugin {
 			try {
 				await this.app.vault.createBinary(path, source.bytes);
 			} catch (err) {
-				console.error("Meta KB: не удалось сохранить изображение из буфера", err);
+				this.logger.error("Meta KB: не удалось сохранить изображение из буфера", err);
 				new Notice(`Meta KB: не удалось сохранить ${path}`);
 				continue;
 			}
@@ -937,7 +998,7 @@ export default class MetaKBPlugin extends Plugin {
 			try {
 				await this.app.workspace.getLeaf(true).openFile(dest);
 			} catch (err) {
-				console.warn("Meta KB: не удалось открыть обёртку", err);
+				this.logger.warn("Meta KB: не удалось открыть обёртку", err);
 			}
 		}
 		return true;
@@ -1030,7 +1091,7 @@ export default class MetaKBPlugin extends Plugin {
 				},
 			});
 		} catch (err) {
-			console.warn("Meta KB: не удалось отрисовать embed обёртки", err);
+			this.logger.warn("Meta KB: не удалось отрисовать embed обёртки", err);
 		}
 	}
 
@@ -1079,7 +1140,7 @@ export default class MetaKBPlugin extends Plugin {
 			await this.app.fileManager.trashFile(file);
 			new Notice(`Meta KB: удалено: ${file.path}`);
 		} catch (err) {
-			console.error("Meta KB: не удалось удалить файл", err);
+			this.logger.error("Meta KB: не удалось удалить файл", err);
 			new Notice(`Meta KB: не удалось удалить ${file.path}`);
 		}
 	}
@@ -1163,7 +1224,7 @@ export default class MetaKBPlugin extends Plugin {
 			await this.app.vault.createFolder(path);
 		} catch (err) {
 			// Папка могла появиться параллельно — это не ошибка.
-			console.warn(`Meta KB: createFolder(${path})`, err);
+			this.logger.warn(`Meta KB: createFolder(${path})`, err);
 		}
 	}
 
@@ -1186,7 +1247,7 @@ export default class MetaKBPlugin extends Plugin {
 				serializeNote(frontmatter, body),
 			);
 		} catch (err) {
-			console.error("Meta KB: не удалось создать файл", err);
+			this.logger.error("Meta KB: не удалось создать файл", err);
 			new Notice(`Meta KB: не удалось создать ${path}`);
 			return null;
 		}
@@ -1220,6 +1281,8 @@ export default class MetaKBPlugin extends Plugin {
 		this.settings.thumbnailAspect = normalizeThumbnailAspect(
 			this.settings.thumbnailAspect,
 		);
+		this.settings.logLevel = normalizeLogLevel(this.settings.logLevel);
+		this.settings.logToConsole = this.settings.logToConsole !== false;
 	}
 
 	async saveSettings(): Promise<void> {
