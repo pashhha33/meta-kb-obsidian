@@ -1,6 +1,6 @@
 {
   "$schema": "./metamodel.schema.json",
-  "schemaVersion": "1.0.0",
+  "schemaVersion": "1.1.0",
   "meta": {
     "title": "Metamodel contract (v1)",
     "strategy": "variant C: prose = semantics, this file = machine input for the plugin",
@@ -12,16 +12,16 @@
   "statuses": ["draft", "accepted", "deprecated"],
 
   "metatypes": [
-    { "type_value": "type", "label": "Тип", "layer": "system", "id": "01a17d3b-4a00-747f-b063-cd02895e0d4f" },
-    { "type_value": "property", "label": "Свойство", "layer": "system", "id": "01a17d3b-4a01-73dd-8782-259a7e45663f" },
-    { "type_value": "relation", "label": "Отношение", "layer": "system", "id": "01a17d3b-4a02-7576-a16a-764c758b99be" },
-    { "type_value": "automation", "label": "Автоматизация", "layer": "system", "id": "01a17d3b-4a03-7afb-a20c-42cc54509281" },
-    { "type_value": "validation-rule", "label": "Правило валидации", "layer": "system", "id": "01a17d3b-4a04-7c70-99cd-5c01dddac8b4" },
-    { "type_value": "domain", "label": "Домен", "layer": "classification", "id": "01a17d3b-4a05-7b2a-a236-1d80c3f98974" },
-    { "type_value": "category", "label": "Категория", "layer": "classification", "id": "01a17d3b-4a06-7991-b54e-9352cde369c0" },
-    { "type_value": "facet", "label": "Фасет", "layer": "classification", "id": "01a17d3b-4a07-7494-b6d9-328c7108a3c0" },
-    { "type_value": "facet-value", "label": "Значение фасета", "layer": "classification", "id": "01a17d3b-4a08-7875-996d-c4af6179a249" },
-    { "type_value": "field-expansion", "label": "Правило развёртывания полей", "layer": "system", "id": "01a17d3b-4a32-716d-82a6-503fe47a47a1" }
+    { "type_value": "type", "label": "Тип", "layer": "system", "defines_layer": "system", "id": "01a17d3b-4a00-747f-b063-cd02895e0d4f" },
+    { "type_value": "property", "label": "Свойство", "layer": "system", "defines_layer": "system", "id": "01a17d3b-4a01-73dd-8782-259a7e45663f" },
+    { "type_value": "relation", "label": "Отношение", "layer": "system", "defines_layer": "system", "id": "01a17d3b-4a02-7576-a16a-764c758b99be" },
+    { "type_value": "automation", "label": "Автоматизация", "layer": "system", "defines_layer": "system", "id": "01a17d3b-4a03-7afb-a20c-42cc54509281" },
+    { "type_value": "validation-rule", "label": "Правило валидации", "layer": "system", "defines_layer": "system", "id": "01a17d3b-4a04-7c70-99cd-5c01dddac8b4" },
+    { "type_value": "domain", "label": "Домен", "layer": "system", "defines_layer": "classification", "id": "01a17d3b-4a05-7b2a-a236-1d80c3f98974" },
+    { "type_value": "category", "label": "Категория", "layer": "system", "defines_layer": "classification", "id": "01a17d3b-4a06-7991-b54e-9352cde369c0" },
+    { "type_value": "facet", "label": "Фасет", "layer": "system", "defines_layer": "classification", "id": "01a17d3b-4a07-7494-b6d9-328c7108a3c0" },
+    { "type_value": "facet-value", "label": "Значение фасета", "layer": "system", "defines_layer": "classification", "id": "01a17d3b-4a08-7875-996d-c4af6179a249" },
+    { "type_value": "field-expansion", "label": "Правило развёртывания полей", "layer": "system", "defines_layer": "system", "id": "01a17d3b-4a32-716d-82a6-503fe47a47a1" }
   ],
 
   "valueTypes": [

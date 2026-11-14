@@ -2,7 +2,7 @@
 // Без внешних зависимостей. Запуск из корня репозитория:  node tools/schema-check.mjs
 import { readFileSync, existsSync } from "node:fs";
 import { fileURLToPath } from "node:url";
-import { dirname, join } from "node:path";
+import { dirname, join, resolve } from "node:path";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const root = join(__dirname, "..");
@@ -13,7 +13,12 @@ const fail = (m) => errors.push(m);
 const warn = (m) => warnings.push(m);
 
 // --- чтение контракта и служебных файлов -------------------------------------
-const schemaPath = join(root, "schema", "metamodel.json");
+// --file <путь> — проверка другого контракта (для отладки/фальсификации ворот).
+const fileArg = process.argv.indexOf("--file");
+const schemaPath =
+	fileArg !== -1 && process.argv[fileArg + 1]
+		? resolve(process.argv[fileArg + 1])
+		: join(root, "schema", "metamodel.json");
 const versionPath = join(root, "schema", "VERSION");
 if (!existsSync(schemaPath)) { console.error(`missing ${schemaPath}`); process.exit(1); }
 
@@ -59,6 +64,15 @@ for (const t of metatypes) if (types.has(t)) fail(`metatype type_value collides 
 for (const mt of m.metatypes) {
   if (!layers.has(mt.layer)) fail(`metatype ${mt.type_value}: unknown layer ${mt.layer}`);
   if (mt.id.length < 8) fail(`metatype ${mt.type_value}: suspicious id ${mt.id}`);
+  // types.md §1: «У всех: type: type, layer: system, status: accepted».
+  // `layer` — слой, которому принадлежит сам объект-определение (всегда system);
+  // `defines_layer` — слой объектов, которые этот метатип определяет.
+  if (mt.layer !== "system") {
+    fail(`metatype ${mt.type_value}: layer = ${mt.layer}, ожидается system (types.md §1)`);
+  }
+  if (!layers.has(mt.defines_layer)) {
+    fail(`metatype ${mt.type_value}: defines_layer = ${mt.defines_layer} не из списка слоёв`);
+  }
 }
 if (m.metatypes.length !== 10) warn(`metatypes count = ${m.metatypes.length} (expected 10)`);
 
@@ -167,6 +181,34 @@ const prosePropKeys = proseKeys("properties.md", [LEADING_TICK]);
 const proseRelKeys = proseKeys("relations.md", [LEADING_TICK]);
 const proseRuleKeys = proseKeys("validation.md", [LEADING_TICK]);
 const proseFeKeys = proseKeys("field-expansion.md", [/^###\s+(FE-\d+)/]);
+
+// Таблица метатипов types.md §1: No | type_value | Русское имя | Определяет объекты слоя | id
+const proseDefinesLayer = (() => {
+  const p = join(root, "metamodel", "types.md");
+  if (!existsSync(p)) return null;
+  const map = new Map();
+  for (const line of readFileSync(p, "utf8").split(/\r?\n/)) {
+    const mm = line.match(
+      /^\|\s*\d+\s*\|\s*`([^`]+)`\s*\|[^|]*\|\s*(system|classification|content)\s*\|/,
+    );
+    if (mm) map.set(mm[1], mm[2]);
+  }
+  return map;
+})();
+
+if (proseDefinesLayer) {
+  for (const mt of m.metatypes) {
+    const expected = proseDefinesLayer.get(mt.type_value);
+    if (!expected) {
+      warn(`metatype ${mt.type_value}: не найден в таблице types.md §1`);
+    } else if (expected !== mt.defines_layer) {
+      fail(
+        `metatype ${mt.type_value}: defines_layer = ${mt.defines_layer}, ` +
+          `а types.md §1 говорит ${expected}`,
+      );
+    }
+  }
+}
 
 // schema → prose (нельзя объявлять ключ, которого проза не объясняет)
 if (proseTypeKeys) for (const tv of [...metatypes, ...types]) if (!proseTypeKeys.has(tv)) fail(`type_value ${tv} absent from metamodel/types.md`);

@@ -8,3 +8,7 @@ import "./registry.test";
 import "./derived.test";
 import "./suggest.test";
 import "./form.test";
+import "./id.test";
+import "./yaml.test";
+import "./create.test";
+import "./bootstrap.test";

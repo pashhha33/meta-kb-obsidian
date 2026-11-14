@@ -24,6 +24,13 @@ export interface MetaKBSettings {
 	booleanWriteFalse: boolean;
 	/** Знаков в авторском листе — делитель для `book.author-sheets`. */
 	authorSheetChars: number;
+	/**
+	 * Папка для определений метамодели (метатипы и определения типов),
+	 * создаваемых командой Bootstrap. `""` — корень хранилища.
+	 */
+	definitionsFolder: string;
+	/** Предлагать bootstrap, если метамодель в хранилище не инициализирована. */
+	bootstrapOffer: boolean;
 }
 
 export const DEFAULT_SETTINGS: MetaKBSettings = {
@@ -32,6 +39,8 @@ export const DEFAULT_SETTINGS: MetaKBSettings = {
 	datetimeOffset: "+00:00",
 	booleanWriteFalse: true,
 	authorSheetChars: 40000,
+	definitionsFolder: "_meta",
+	bootstrapOffer: true,
 };
 
 /** Вкладка настроек плагина. */
@@ -127,6 +136,35 @@ export class MetaKBSettingTab extends PluginSettingTab {
 					this.plugin.settings.authorSheetChars = parsed;
 					await this.plugin.saveSettings();
 					this.notifySettingsChanged();
+				});
+			});
+
+		new Setting(containerEl)
+			.setName("Папка определений")
+			.setDesc(
+				"Куда команда «Bootstrap metamodel» кладёт метатипы и определения " +
+					'типов. Пустое значение — корень хранилища. По умолчанию "_meta".',
+			)
+			.addText((text) => {
+				text.setPlaceholder("_meta");
+				text.setValue(this.plugin.settings.definitionsFolder);
+				text.onChange(async (value) => {
+					this.plugin.settings.definitionsFolder = value.trim();
+					await this.plugin.saveSettings();
+				});
+			});
+
+		new Setting(containerEl)
+			.setName("Предлагать bootstrap")
+			.setDesc(
+				"Показывать подсказку при запуске, если в хранилище нет 10 метатипов " +
+					"(metamodel/bootstrap.md).",
+			)
+			.addToggle((toggle) => {
+				toggle.setValue(this.plugin.settings.bootstrapOffer);
+				toggle.onChange(async (value) => {
+					this.plugin.settings.bootstrapOffer = value;
+					await this.plugin.saveSettings();
 				});
 			});
 	}

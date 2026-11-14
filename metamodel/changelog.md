@@ -1,5 +1,20 @@
 # Changelog метамодели
 
+## [ITER-2026-11-14-1] — 2026-11-14 · schemaVersion 1.0.0 → 1.1.0
+- **Исправление контракта:** у всех 10 метатипов `layer` приведён к `system`
+  (types.md §1: «У всех: `type: type`, `layer: system`, `status: accepted»).
+  Слой объектов, которые метатип определяет, вынесен в новое поле
+  `defines_layer` (столбец «Определяет объекты слоя»). Ранее `domain`,
+  `category`, `facet`, `facet-value` имели `layer: classification` — это
+  смешивало слой самого определения со слоем его экземпляров.
+- `types.md` §1: `title` определения = английское имя (`type_value`),
+  `aliases[0] = title`, `aliases[1]` = русское имя.
+- G2 (`tools/schema-check.mjs`): добавлена сверка значений — `layer` метатипа
+  обязан быть `system`, `defines_layer` обязан совпадать со столбцом таблицы
+  `types.md` §1; поддержан `--file <путь>`.
+- `gaps.md` §1: пункт «Bootstrap vault» закрыт (10 метатипов + определения
+  29 типов ядра создаются командой плагина).
+
 ## [Unreleased]
 - Инициализация
 - **ADR-001**: переименование встроенного метатипа `hierarchical-category` → `category`

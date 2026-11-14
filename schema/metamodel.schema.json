@@ -24,11 +24,12 @@
       "items": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["type_value", "label", "layer", "id"],
+        "required": ["type_value", "label", "layer", "defines_layer", "id"],
         "properties": {
           "type_value": { "type": "string" },
           "label": { "type": "string" },
           "layer": { "type": "string", "enum": ["system", "classification", "content"] },
+          "defines_layer": { "type": "string", "enum": ["system", "classification", "content"] },
           "id": { "type": "string", "minLength": 1 }
         }
       }

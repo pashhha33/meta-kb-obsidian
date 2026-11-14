@@ -10,8 +10,8 @@
 
 | Файл / тема | Зачем | Приоритет |
 |-------------|--------|-----------|
+| ~~Bootstrap vault~~ | закрыто в ITER-2026-11-14-1: 10 метатипов + определения 29 типов ядра | — |
 | `validation.md` | реестр validation-rule, severity, связь с INV | высокий |
-| Bootstrap vault | порядок создания 10 метатипов + опциональное ядро | высокий |
 | Plugin settings schema | `datetimeDisplay`, пути, флаги UX | средний |
 | Mapping frontmatter ↔ UI | формы по эффективному набору полей | средний |
 | Миграции | rename category, owner removal, schema bumps | средний |

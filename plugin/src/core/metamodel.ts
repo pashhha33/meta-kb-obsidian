@@ -72,6 +72,8 @@ interface MetatypeDef {
 	type_value: string;
 	label: string;
 	layer: string;
+	/** Слой объектов, которые определяет этот метатип (types.md §1, столбец «Определяет объекты слоя»). */
+	defines_layer: string;
 	id: string;
 }
 
@@ -257,4 +259,36 @@ export function isKnownType(typeValue: string): boolean {
 		typeByValue.has(typeValue) ||
 		metamodel.metatypes.some((mt) => mt.type_value === typeValue)
 	);
+}
+
+/** Метатип, объекты которого описывают типы. */
+export const TYPE_METATYPE_VALUE = "type";
+
+const metatypeByValue = new Map(
+	metamodel.metatypes.map((mt) => [mt.type_value, mt]),
+);
+
+/** Является ли type_value метатипом (10 встроенных). */
+export function isMetatype(typeValue: string): boolean {
+	return metatypeByValue.has(typeValue);
+}
+
+/**
+ * Слой объекта-экземпляра с данным `type_value`.
+ *
+ * `layer` в объекте — слой, которому принадлежит сам объект (types.md §1:
+ * у метатипов всегда `system`). Для их экземпляров слой берётся из
+ * `defines_layer`; все 29 типов ядра — слой `content` (types.md §3).
+ */
+export function layerOfInstance(typeValue: string): string {
+	const metatype = metatypeByValue.get(typeValue);
+	if (metatype) {
+		return metatype.defines_layer;
+	}
+	return "content";
+}
+
+/** Слой, в котором живут определения (метатипы и определения типов). */
+export function layerOfDefinition(): string {
+	return "system";
 }
