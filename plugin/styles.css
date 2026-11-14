@@ -450,6 +450,10 @@ textarea.meta-kb-input {
 	grid-template-columns: repeat(auto-fill, var(--meta-kb-thumb-size, 120px));
 	justify-content: start;
 	gap: 8px;
+	/* Родитель `.meta-kb-modal-body` — flex-колонка; без flex:none галерея
+	   сжимается по высоте и миниатюры обрезаются полосой. */
+	flex: none;
+	width: 100%;
 	max-height: 320px;
 	overflow: auto;
 	padding: 2px;
@@ -498,6 +502,7 @@ textarea.meta-kb-input {
 
 .meta-kb-thumb img {
 	display: block;
+	flex: none;
 	width: 100%;
 	aspect-ratio: var(--meta-kb-thumb-ratio, 1 / 1);
 	object-fit: cover;
@@ -513,6 +518,7 @@ textarea.meta-kb-input {
 
 .meta-kb-thumb-fallback {
 	display: flex;
+	flex: none;
 	align-items: center;
 	justify-content: center;
 	aspect-ratio: var(--meta-kb-thumb-ratio, 1 / 1);

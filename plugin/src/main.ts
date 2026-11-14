@@ -14,11 +14,13 @@ import { CORE_TYPES } from "./core/metamodel";
 import { buildNewObject, findTypeDefinitionId } from "./core/create";
 import {
 	AttachmentIndex,
+	attachmentEmbed,
 	buildAttachmentIndex,
 	buildImageWrapperPlan,
 	decideAttachment,
 	isImagePath,
 	normalizeAttachmentPath,
+	shouldSyncBody,
 } from "./core/attachment";
 import {
 	clampThumbnailSize,
@@ -44,6 +46,12 @@ const HIDE_CORE_PROPERTIES_CSS_CLASS = "meta-kb-hide-core-properties";
 /** Задержка пересборки Registry после изменений vault. */
 const REGISTRY_REBUILD_DEBOUNCE_MS = 300;
 
+/** Тело заметки: всё после закрывающего `---` frontmatter. */
+function noteBody(content: string): string {
+	const match = /^---\r?\n[\s\S]*?\r?\n---\r?\n?/.exec(content);
+	return match ? content.slice(match[0].length) : content;
+}
+
 /**
  * Meta KB — плагин поддержки метамодели Second Brain PKB.
  *
@@ -59,6 +67,8 @@ export default class MetaKBPlugin extends Plugin {
 	/** Индекс «файл-вложение → обёртка image» (C-IMG-05). */
 	private attachmentIndex: AttachmentIndex = buildAttachmentIndex([]);
 	private rebuildTimer: number | null = null;
+	/** Тела обёрток уже выровнены в этой сессии (см. backfillWrapperBodies). */
+	private bodiesBackfilled = false;
 
 	/** Доступ к Registry для UI (виджет и модалки). */
 	getRegistry(): Registry {
@@ -150,6 +160,7 @@ export default class MetaKBPlugin extends Plugin {
 		this.app.workspace.onLayoutReady(() => {
 			this.rebuildRegistry();
 			this.offerBootstrap();
+			void this.backfillWrapperBodies();
 		});
 		const schedule = (): void => this.scheduleRebuild();
 		this.registerEvent(this.app.metadataCache.on("changed", schedule));
@@ -225,6 +236,60 @@ export default class MetaKBPlugin extends Plugin {
 			this.attachmentIndex = buildAttachmentIndex(next.all());
 		} catch (err) {
 			console.warn("Meta KB: не удалось перестроить Registry", err);
+		}
+	}
+
+	/**
+	 * Один раз за сессию: обёрткам с пустым телом дописать embed вложения.
+	 *
+	 * Ранее созданные обёртки (до C-IMG-01 с телом) показывались в Reading
+	 * View только благодаря post-processor'у, а в Live Preview — не показывались
+	 * вовсе. С телом `![[вложение]]` изображение рисует сам Obsidian в обоих
+	 * режимах (C-IMG-01). Текст владельца не трогаем: только пустое тело.
+	 */
+	private async backfillWrapperBodies(): Promise<void> {
+		if (this.bodiesBackfilled) {
+			return;
+		}
+		this.bodiesBackfilled = true;
+
+		let filled = 0;
+		for (const record of this.registry.all()) {
+			if (record.type !== "image") {
+				continue;
+			}
+			const attachment = normalizeAttachmentPath(record.props["attachment"]);
+			if (attachment === "" || !isImagePath(attachment)) {
+				continue;
+			}
+			const file = this.app.vault.getMarkdownFiles()
+				.find((candidate) => candidate.basename === record.path);
+			if (!file) {
+				continue;
+			}
+			try {
+				const content = await this.app.vault.cachedRead(file);
+				const body = noteBody(content);
+				if (!shouldSyncBody(body, attachment)) {
+					continue;
+				}
+				const head = content.slice(0, content.length - body.length);
+				const separator = head === "" || head.endsWith("\n") ? "" : "\n";
+				await this.app.vault.modify(
+					file,
+					`${head}${separator}${attachmentEmbed(attachment)}\n`,
+				);
+				filled += 1;
+			} catch (err) {
+				console.warn(`Meta KB: не удалось выровнять тело ${file.path}`, err);
+			}
+		}
+		if (filled > 0) {
+			new Notice(
+				`Meta KB: подключено изображений к обёрткам: ${filled}. ` +
+					"Теперь `![[image_id]]` показывает картинку и в Live Preview.",
+				8000,
+			);
 		}
 	}
 
@@ -314,7 +379,7 @@ export default class MetaKBPlugin extends Plugin {
 			attachment,
 			definedBy,
 		});
-		const file = await this.createNote("", plan.filename, plan.frontmatter);
+		const file = await this.createNote("", plan.filename, plan.frontmatter, plan.body);
 		if (!file) {
 			return;
 		}
@@ -550,11 +615,12 @@ export default class MetaKBPlugin extends Plugin {
 		}
 	}
 
-	/** Создать заметку с готовым frontmatter. null — файл уже существует. */
+	/** Создать заметку с готовым frontmatter (и телом). null — файл уже существует. */
 	private async createNote(
 		folder: string,
 		filename: string,
 		frontmatter: Record<string, unknown>,
+		body = "",
 	): Promise<TFile | null> {
 		await this.ensureFolder(folder);
 		const path = folder ? `${folder}/${filename}` : filename;
@@ -563,7 +629,10 @@ export default class MetaKBPlugin extends Plugin {
 			return null;
 		}
 		try {
-			return await this.app.vault.create(path, serializeNote(frontmatter));
+			return await this.app.vault.create(
+				path,
+				serializeNote(frontmatter, body),
+			);
 		} catch (err) {
 			console.error("Meta KB: не удалось создать файл", err);
 			new Notice(`Meta KB: не удалось создать ${path}`);

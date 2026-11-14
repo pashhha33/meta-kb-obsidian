@@ -1,12 +1,15 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
+	attachmentEmbed,
 	buildAttachmentIndex,
 	buildImageWrapperPlan,
+	bodyMatchesAttachment,
 	decideAttachment,
 	fileExtension,
 	isImagePath,
 	normalizeAttachmentPath,
+	shouldSyncBody,
 	unwrappedImagePaths,
 	wrapperForPath,
 } from "../src/core/attachment";
@@ -93,6 +96,25 @@ test("buildImageWrapperPlan: attachment обязателен и нормализ
 	assert.equal(plan.frontmatter.attachment, "img/Cover.PNG");
 	assert.equal(plan.frontmatter.defined_by, "def-1");
 	assert.deepEqual(plan.frontmatter.aliases, ["Обложка"]);
+	// Тело — embed вложения, чтобы `![[image_w1]]` показывал картинку (C-IMG-01).
+	assert.equal(plan.body, "![[img/Cover.PNG]]");
+});
+
+test("attachmentEmbed / bodyMatchesAttachment / shouldSyncBody", () => {
+	assert.equal(attachmentEmbed("a/b.png"), "![[a/b.png]]");
+	assert.equal(attachmentEmbed("  a\\b.png  "), "![[a/b.png]]");
+	assert.equal(attachmentEmbed(""), "");
+
+	assert.equal(bodyMatchesAttachment("![[a/b.png]]", "a/b.png"), true);
+	assert.equal(bodyMatchesAttachment("![[a/b.png]]", "x.png"), false);
+	assert.equal(bodyMatchesAttachment("", "a/b.png"), false);
+	assert.equal(bodyMatchesAttachment("свой текст", "a/b.png"), false);
+
+	// Пустое тело и embed — принадлежат плагину; остальное не трогаем.
+	assert.equal(shouldSyncBody("", "a/b.png"), true);
+	assert.equal(shouldSyncBody("![[старый.png]]", "a/b.png"), true);
+	assert.equal(shouldSyncBody("Мои заметки про картинку", "a/b.png"), false);
+	assert.equal(shouldSyncBody("![[a/b.png]]\nещё строка", "a/b.png"), false);
 });
 
 test("buildImageWrapperPlan: roles добавляются только непустые", () => {

@@ -178,11 +178,26 @@ export interface WrapperInput {
 export interface WrapperPlan {
 	filename: string;
 	frontmatter: Record<string, unknown>;
+	/**
+	 * Тело заметки: embed самого вложения.
+	 *
+	 * Так embed `![[image_{id}]]` показывает изображение в **Live Preview и в
+	 * Reading View** — Obsidian рендерит тело вложенной заметки, а `![[файл.png]]`
+	 * он показывает как картинку сам по себе (C-IMG-01). Post-processor в Reading
+	 * View при этом остаётся как второй, независимый путь.
+	 */
+	body: string;
+}
+
+/** Embed вложения: `![[путь/к/файлу.png]]`. */
+export function attachmentEmbed(attachment: string): string {
+	const path = normalizeAttachmentPath(attachment);
+	return path === "" ? "" : `![[${path}]]`;
 }
 
 /**
  * План объекта-обёртки `image`: универсальное ядро + обязательный `attachment`
- * (INV-24) + необязательные `roles` (C-IMG-06).
+ * (INV-24) + необязательные `roles` (C-IMG-06) + embed вложения в теле.
  */
 export function buildImageWrapperPlan(input: WrapperInput): WrapperPlan {
 	const base = buildNewObject({
@@ -199,5 +214,33 @@ export function buildImageWrapperPlan(input: WrapperInput): WrapperPlan {
 	if (input.roles && input.roles.length > 0) {
 		frontmatter.roles = [...input.roles];
 	}
-	return { filename: base.filename, frontmatter };
+	return {
+		filename: base.filename,
+		frontmatter,
+		body: attachmentEmbed(input.attachment),
+	};
+}
+
+/** Тело заметки уже синхронизировано с `attachment`? */
+export function bodyMatchesAttachment(body: string, attachment: string): boolean {
+	const trimmed = body.trim();
+	if (trimmed === "") {
+		return false;
+	}
+	const expected = attachmentEmbed(attachment);
+	return expected !== "" && trimmed === expected;
+}
+
+/**
+ * Нужно ли плагину перезаписать тело обёртки.
+ *
+ * Пустое тело и тело, которое плагин сам писал (`![[...]]`), — принадлежат
+ * плагину. Всё остальное — текст владельца, и мы к нему не прикасаемся.
+ */
+export function shouldSyncBody(body: string, attachment: string): boolean {
+	const trimmed = body.trim();
+	if (trimmed === "") {
+		return true;
+	}
+	return /^!\[\[[^\]]+\]\]$/.test(trimmed);
 }

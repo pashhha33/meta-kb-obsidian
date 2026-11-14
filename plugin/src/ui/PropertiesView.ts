@@ -17,7 +17,11 @@ import { buildForm } from "../core/form";
 import type { FormModel, FormRow } from "../core/form";
 import { suggestLinks } from "../core/suggest";
 import type { SuggestCandidate } from "../core/suggest";
-import { decideAttachment } from "../core/attachment";
+import {
+	attachmentEmbed,
+	decideAttachment,
+	shouldSyncBody,
+} from "../core/attachment";
 import { thumbnailAspectRatio } from "../core/thumbnails";
 import { FieldRow } from "./FieldRow";
 import { openFieldModal } from "./modals/FieldModal";
@@ -403,6 +407,9 @@ export class MetaKBPropertiesView extends ItemView {
 	 * Запись значения поля в frontmatter.
 	 * value === undefined → удалить ключ (пустое значение = отсутствие ключа).
 	 * Значимое изменение двигает updated_at (ADR-004).
+	 *
+	 * Смена `attachment` у обёртки дополнительно синхронизирует тело заметки,
+	 * чтобы `![[image_id]]` показывал уже новый файл (C-IMG-01).
 	 */
 	private async writeFieldValue(
 		file: TFile,
@@ -422,9 +429,46 @@ export class MetaKBPropertiesView extends ItemView {
 					fm.updated_at = new Date().toISOString();
 				}
 			});
+			if (key === "attachment") {
+				await this.syncWrapperBody(
+					file,
+					typeof value === "string" ? value : "",
+				);
+			}
 		} catch (err) {
 			console.error("Meta KB: ошибка записи frontmatter", err);
 			new Notice(`Meta KB: не удалось записать поле «${key}»`);
+		}
+	}
+
+	/**
+	 * Тело обёртки следует за `attachment`.
+	 *
+	 * Переписываем только тело, которое писал плагин: пустое или целиком
+	 * состоящее из одного embed (`![[...]]`). Свой текст владельца не трогаем.
+	 */
+	private async syncWrapperBody(file: TFile, attachment: string): Promise<void> {
+		const type =
+			this.app.metadataCache.getFileCache(file)?.frontmatter?.["type"];
+		if (type !== "image" || attachment === "") {
+			return;
+		}
+		try {
+			const content = await this.app.vault.cachedRead(file);
+			const match = /^---\r?\n[\s\S]*?\r?\n---\r?\n?/.exec(content);
+			const head = match ? content.slice(0, match[0].length) : "";
+			const body = match ? content.slice(match[0].length) : content;
+			if (!shouldSyncBody(body, attachment)) {
+				return;
+			}
+			const embed = attachmentEmbed(attachment);
+			if (body.trim() === embed) {
+				return; // уже синхронизировано
+			}
+			const separator = head === "" || head.endsWith("\n") ? "" : "\n";
+			await this.app.vault.modify(file, `${head}${separator}${embed}\n`);
+		} catch (err) {
+			console.warn(`Meta KB: не удалось синхронизировать тело ${file.path}`, err);
 		}
 	}
 }
