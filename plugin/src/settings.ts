@@ -59,6 +59,11 @@ export interface MetaKBSettings {
 	logLevel: LogLevel;
 	/** Дублировать записи лога в консоль Obsidian (DevTools). */
 	logToConsole: boolean;
+	/**
+	 * Подсказывать обёртку при наведении на изображение в теле заметки
+	 * (C-IMG-03): «открыть обёртку» или «создать обёртку».
+	 */
+	suggestWrapImages: boolean;
 }
 
 export const DEFAULT_SETTINGS: MetaKBSettings = {
@@ -73,6 +78,7 @@ export const DEFAULT_SETTINGS: MetaKBSettings = {
 	thumbnailAspect: "square",
 	logLevel: DEFAULT_LOG_LEVEL,
 	logToConsole: true,
+	suggestWrapImages: true,
 };
 
 /** Вкладка настроек плагина. */
@@ -237,6 +243,24 @@ export class MetaKBSettingTab extends PluginSettingTab {
 					await this.plugin.saveSettings();
 				});
 			});
+
+		// --- Изображения: подсказка обёртки (C-IMG-03) -----------------------
+
+		new Setting(containerEl)
+			.setName("Подсказывать обёртку при наведении")
+			.setDesc(
+				"Над изображением в теле заметки появляется значок: «открыть " +
+					"обёртку», если она уже есть, иначе «создать обёртку».",
+			)
+			.addToggle((toggle) =>
+				toggle
+					.setValue(this.plugin.settings.suggestWrapImages)
+					.onChange(async (value) => {
+						this.plugin.settings.suggestWrapImages = value;
+						await this.plugin.saveSettings();
+						this.notifySettingsChanged();
+					}),
+			);
 
 		// --- Логирование -----------------------------------------------------
 

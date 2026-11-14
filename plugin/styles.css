@@ -489,6 +489,46 @@ textarea.meta-kb-input {
 	width: min(640px, 92vw);
 }
 
+/* --- Значок над изображением (C-IMG-03) --- */
+.meta-kb-hover-layer {
+	position: fixed;
+	z-index: var(--layer-popover, 30);
+	pointer-events: none;
+}
+
+/* Значок — <button>, поэтому сбрасываем умолчания Obsidian (height, фон,
+   тень); селектор с контейнером даёт специфичность выше
+   `button:not(.clickable-icon)`. */
+.meta-kb-hover-layer .meta-kb-hover-action {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	pointer-events: auto;
+	width: 26px;
+	height: 26px;
+	min-height: 0;
+	padding: 0;
+	border: 1px solid var(--background-modifier-border);
+	border-radius: var(--radius-s);
+	background-color: var(--background-primary);
+	box-shadow: var(--shadow-s);
+	color: var(--text-muted);
+	white-space: normal;
+	cursor: pointer;
+	opacity: 0.92;
+}
+
+.meta-kb-hover-layer .meta-kb-hover-action:hover {
+	opacity: 1;
+	color: var(--text-normal);
+	background-color: var(--background-modifier-hover);
+}
+
+.meta-kb-hover-layer svg {
+	width: 15px;
+	height: 15px;
+}
+
 /* --- Находки валидации в строках и навигация по главе --- */
 .meta-kb-field-finding {
 	display: inline-flex;

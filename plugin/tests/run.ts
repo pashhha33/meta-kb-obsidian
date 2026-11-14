@@ -20,6 +20,7 @@ import "./validation.test";
 import "./validation-rules.test";
 import "./chapter.test";
 import "./volume.test";
+import "./embeds.test";
 import "./logging.test";
 import "./thumbnails.test";
 import "./styles.test";

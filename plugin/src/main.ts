@@ -76,6 +76,8 @@ import {
 	resolveChapterTitle,
 } from "./core/chapter";
 import { bookVolume, countCleanChars } from "./core/volume";
+import { resolveEmbed } from "./core/embeds";
+import { EmbedHoverActions } from "./ui/EmbedHoverActions";
 import { validateVault } from "./core/validation";
 import { Logger, normalizeLogLevel } from "./core/logging";
 import type { LogEntry } from "./core/logging";
@@ -149,6 +151,8 @@ export default class MetaKBPlugin extends Plugin {
 	private bodiesBackfilled = false;
 	/** Отложенные пересчёты книг: linkpath книги → таймер. */
 	private readonly bookVolumeTimers = new Map<string, number>();
+	/** Значок над изображением в теле заметки (C-IMG-03). */
+	private hoverActions: EmbedHoverActions | null = null;
 	/** Журнал плагина: буфер записей + необязательный вывод в консоль. */
 	private readonly logger = new Logger();
 
@@ -369,6 +373,29 @@ export default class MetaKBPlugin extends Plugin {
 			this.renderImageEmbeds(element, context.sourcePath);
 		});
 
+		// C-IMG-03: значок над изображением — открыть или создать обёртку.
+		this.hoverActions = new EmbedHoverActions(this.app, {
+			enabled: () => this.settings.suggestWrapImages,
+			resolve: (src) =>
+				resolveEmbed(src, {
+					wrapperForAttachment: (path) =>
+						wrapperForPath(this.attachmentIndex, path),
+					resolveLink: (linkpath) => {
+						const record = this.registry
+							.all()
+							.find((item) => linkpathOf(item) === linkpath);
+						return record
+							? { id: record.id, type: record.type, title: record.title }
+							: undefined;
+					},
+				}),
+			onOpenWrapper: (id) => this.openObjectById(id),
+			onCreateWrapper: (attachment) =>
+				void this.openImageWrapperPicker({ presetAttachment: attachment }),
+			log: (message, details) => this.logger.warn(message, details),
+		});
+		this.hoverActions.attach();
+
 		// C-IMG-07: удаление обёртки с вопросом про привязанный файл.
 		this.registerEvent(
 			this.app.workspace.on("file-menu", (menu, file) => {
@@ -388,6 +415,8 @@ export default class MetaKBPlugin extends Plugin {
 	}
 
 	override onunload(): void {
+		this.hoverActions?.detach();
+		this.hoverActions = null;
 		if (this.rebuildTimer !== null) {
 			window.clearTimeout(this.rebuildTimer);
 			this.rebuildTimer = null;
@@ -1087,10 +1116,13 @@ export default class MetaKBPlugin extends Plugin {
 	 * должно: сначала пробуем буфер обмена (C-IMG-04 п.2), и только если там
 	 * пусто, объясняем, почему создавать нечего.
 	 */
-	private async openImageWrapperPicker(): Promise<void> {
+	private async openImageWrapperPicker(
+		options: { presetAttachment?: string } = {},
+	): Promise<void> {
 		const all = this.listImagePaths();
 		const imagePaths = unwrappedImagePaths(all, this.attachmentIndex);
-		if (imagePaths.length === 0) {
+		const preset = options.presetAttachment ?? "";
+		if (imagePaths.length === 0 && preset === "") {
 			const pasted = await this.pasteImageWrapper({ silent: true });
 			if (pasted) {
 				return;
@@ -1110,6 +1142,9 @@ export default class MetaKBPlugin extends Plugin {
 		new ImageFilePickerModal(this.app, {
 			mode: "create-wrapper",
 			imagePaths,
+			// C-IMG-03: значок над изображением открывает диалог с уже
+			// выбранным файлом — остаётся подтвердить имя.
+			initialPath: preset !== "" ? preset : undefined,
 			decide: (path) => decideAttachment(this.attachmentIndex, path, null),
 			resourcePath: (path) => this.resourcePathFor(path),
 			...this.thumbnailOptions(),
