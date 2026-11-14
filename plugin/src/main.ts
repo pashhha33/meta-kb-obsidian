@@ -21,6 +21,7 @@ import {
 	isImagePath,
 	normalizeAttachmentPath,
 	shouldSyncBody,
+	unwrappedImagePaths,
 } from "./core/attachment";
 import {
 	clampThumbnailSize,
@@ -343,15 +344,24 @@ export default class MetaKBPlugin extends Plugin {
 	// --- Обёртка изображения (ADR-003, C-IMG) ------------------------------------
 
 	/**
-	 * Диалог создания обёртки: галерея необёрнутых изображений миниатюрами
-	 * плюс возможность указать путь вручную (C-IMG-04).
+	 * Диалог создания обёртки: галерея **необёрнутых** изображений
+	 * миниатюрами плюс возможность указать путь вручную (C-IMG-04 п.2).
+	 *
+	 * Уже обёрнутые файлы в галерее не показываются (C-IMG-04 п.4): выбрать их
+	 * для новой обёртки нельзя, а засорять сетку неактивными элементами
+	 * незачем. Ручной путь остаётся: если он указывает на обёрнутый файл,
+	 * диалог скажет об этом и предложит открыть существующую обёртку.
 	 */
 	private openImageWrapperPicker(): void {
-		const imagePaths = this.listImagePaths();
+		const all = this.listImagePaths();
+		const imagePaths = unwrappedImagePaths(all, this.attachmentIndex);
 		if (imagePaths.length === 0) {
 			new Notice(
-				"Meta KB: в хранилище нет изображений — добавьте файл-картинку " +
-					"и повторите создание обёртки.",
+				all.length === 0
+					? "Meta KB: в хранилище нет изображений — добавьте файл-картинку " +
+							"и повторите создание обёртки."
+					: `Meta KB: все изображения уже обёрнуты (${all.length}). ` +
+							"Новые обёртки создавать не из чего.",
 				8000,
 			);
 			return;

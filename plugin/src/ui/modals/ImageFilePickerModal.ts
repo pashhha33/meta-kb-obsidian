@@ -1,5 +1,6 @@
 import { App, Modal } from "obsidian";
 import type { AttachDecision } from "../../core/attachment";
+import { fileBasename, titleFromPath } from "../../core/attachment";
 
 export interface ImageFilePickerParams {
 	/**
@@ -21,17 +22,6 @@ export interface ImageFilePickerParams {
 	onSubmit: (payload: { title: string; attachment: string }) => void | Promise<void>;
 	/** Перейти к уже существующей обёртке (C-IMG-05). */
 	onOpenExisting?: (id: string) => void;
-}
-
-function basename(path: string): string {
-	const parts = path.split("/");
-	return parts[parts.length - 1] ?? path;
-}
-
-function titleFromPath(path: string): string {
-	const name = basename(path);
-	const dot = name.lastIndexOf(".");
-	return dot > 0 ? name.slice(0, dot) : name;
 }
 
 /**
@@ -151,11 +141,11 @@ export class ImageFilePickerModal extends Modal {
 
 		const url = this.params.resourcePath(path);
 		if (url) {
-			item.createEl("img", { attr: { src: url, alt: basename(path) } });
+			item.createEl("img", { attr: { src: url, alt: fileBasename(path) } });
 		} else {
-			item.createEl("div", { cls: "meta-kb-thumb-fallback", text: basename(path) });
+			item.createEl("div", { cls: "meta-kb-thumb-fallback", text: fileBasename(path) });
 		}
-		item.createEl("span", { cls: "meta-kb-thumb-name", text: basename(path) });
+		item.createEl("span", { cls: "meta-kb-thumb-name", text: fileBasename(path) });
 
 		const decision = this.params.decide(path);
 		if (decision.existing) {

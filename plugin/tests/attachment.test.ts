@@ -6,10 +6,12 @@ import {
 	buildImageWrapperPlan,
 	bodyMatchesAttachment,
 	decideAttachment,
+	fileBasename,
 	fileExtension,
 	isImagePath,
 	normalizeAttachmentPath,
 	shouldSyncBody,
+	titleFromPath,
 	unwrappedImagePaths,
 	wrapperForPath,
 } from "../src/core/attachment";
@@ -81,6 +83,37 @@ test("unwrappedImagePaths: только изображения без обёрт
 	const index = buildAttachmentIndex(records);
 	const files = ["img/cover.png", "img/new.gif", "doc.pdf", "img/poster.jpg"];
 	assert.deepEqual(unwrappedImagePaths(files, index), ["img/new.gif"]);
+});
+
+test("создание обёртки: занятые файлы не попадают в галерею (C-IMG-04 п.2)", () => {
+	const index = buildAttachmentIndex(records);
+	const all = [
+		"img/cover.png",
+		"img/poster.jpg",
+		"img/new.gif",
+		"img/free.webp",
+		"notes.pdf",
+	];
+	// Отсечка: в галерее остаются только свободные изображения.
+	assert.deepEqual(unwrappedImagePaths(all, index), [
+		"img/new.gif",
+		"img/free.webp",
+	]);
+	// Но ручной ввод пути к занятому файлу — по-прежнему ошибка с предложением
+	// открыть существующую обёртку, а не тихое создание второй (C-IMG-05).
+	const decision = decideAttachment(index, "img/cover.png", null);
+	assert.equal(decision.reason, "owned-by-other");
+	assert.equal(decision.existing?.id, "img1");
+});
+
+test("fileBasename / titleFromPath: имя и заготовка названия", () => {
+	assert.equal(fileBasename("attachments/Pasted image 1.png"), "Pasted image 1.png");
+	assert.equal(fileBasename("photo.png"), "photo.png");
+	assert.equal(fileBasename("a\\b\\c.png"), "c.png");
+	assert.equal(titleFromPath("attachments/Pasted image 1.png"), "Pasted image 1");
+	assert.equal(titleFromPath("img/Cover.PNG"), "Cover");
+	assert.equal(titleFromPath("no-ext"), "no-ext");
+	assert.equal(titleFromPath(".hidden"), ".hidden");
 });
 
 test("buildImageWrapperPlan: attachment обязателен и нормализован", () => {

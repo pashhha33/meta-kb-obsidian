@@ -61,6 +61,20 @@ export function isImagePath(path: string): boolean {
 	return IMAGE_EXTENSIONS.includes(fileExtension(path));
 }
 
+/** Имя файла с расширением (`attachments/photo.png` → `photo.png`). */
+export function fileBasename(path: string): string {
+	const clean = normalizeAttachmentPath(path);
+	const slash = clean.lastIndexOf("/");
+	return slash === -1 ? clean : clean.slice(slash + 1);
+}
+
+/** Имя файла без расширения — заготовка названия обёртки. */
+export function titleFromPath(path: string): string {
+	const name = fileBasename(path);
+	const dot = name.lastIndexOf(".");
+	return dot > 0 ? name.slice(0, dot) : name;
+}
+
 export interface AttachmentRecord {
 	id: string;
 	type: string;
