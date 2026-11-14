@@ -1,10 +1,15 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
+	buildImportedImagePath,
 	buildPastedImagePath,
 	clipboardImageExtension,
 	guessAttachmentFolder,
+	parseFileNameW,
+	parsePathList,
+	parseUriList,
 	pastedImageStamp,
+	pickImageFilePaths,
 	resolveAttachmentFolder,
 } from "../src/core/clipboard";
 
@@ -121,5 +126,109 @@ test("guessAttachmentFolder: самая населённая папка с из�
 	assert.equal(
 		guessAttachmentFolder([".\\attachment\\a.png", "attachment/b.png"]),
 		"attachment",
+	);
+});
+
+// --- файл, скопированный в проводнике (CF_HDROP) ------------------------------
+
+/** Собрать буфер `FileNameW`: UTF-16LE, строки через NUL, в конце двойной NUL. */
+function fileNameWBuffer(paths: string[]): Uint8Array {
+	const text = paths.join("\u0000") + "\u0000\u0000";
+	const bytes = new Uint8Array(text.length * 2);
+	for (let index = 0; index < text.length; index += 1) {
+		const code = text.charCodeAt(index);
+		bytes[index * 2] = code & 0xff;
+		bytes[index * 2 + 1] = code >> 8;
+	}
+	return bytes;
+}
+
+test("parseFileNameW: список путей из формата Windows", () => {
+	assert.deepEqual(
+		parseFileNameW(fileNameWBuffer(["C:\\img\\a.png", "C:\\img\\b.jpg"])),
+		["C:\\img\\a.png", "C:\\img\\b.jpg"],
+	);
+	assert.deepEqual(parseFileNameW(new Uint8Array(0)), []);
+	// Кириллица в пути (UTF-16LE, а не UTF-8).
+	assert.deepEqual(
+		parseFileNameW(fileNameWBuffer(["D:\\Фото\\кот.png"])),
+		["D:\\Фото\\кот.png"],
+	);
+});
+
+test("parseUriList: file://-ссылки и комментарии", () => {
+	assert.deepEqual(
+		parseUriList(
+			"# комментарий\r\nfile:///C:/Users/a/My%20Photo.png\r\nfile:///home/x/b.jpg\r\n",
+		),
+		["C:/Users/a/My Photo.png", "/home/x/b.jpg"],
+	);
+	// Не-файловые URI и UNC отбрасываются.
+	assert.deepEqual(parseUriList("https://example.com/a.png"), []);
+	assert.deepEqual(parseUriList("file://server/share/a.png"), []);
+	assert.deepEqual(parseUriList(""), []);
+});
+
+test("parsePathList: текст как список путей, кавычки снимаются", () => {
+	assert.deepEqual(parsePathList('C:\\a.png\n"C:\\b c.png"\n\n'), [
+		"C:\\a.png",
+		"C:\\b c.png",
+	]);
+	assert.deepEqual(parsePathList(""), []);
+});
+
+test("pickImageFilePaths: только существующие изображения, без дублей", () => {
+	const existing = new Set(["C:\\img\\a.png", "C:\\img\\b.jpg"]);
+	const isFile = (path: string): boolean => existing.has(path);
+	const picked = pickImageFilePaths(
+		[
+			"C:\\img\\a.png",
+			"C:\\img\\A.PNG", // тот же файл в другом формате буфера
+			"C:\\img\\b.jpg",
+			"C:\\img\\нет.png", // файла нет
+			"C:\\img\\doc.pdf", // не изображение
+			"",
+		],
+		isFile,
+	);
+	assert.deepEqual(picked, ["C:\\img\\a.png", "C:\\img\\b.jpg"]);
+});
+
+test("buildImportedImagePath: исходное имя, уникализация при занятости", () => {
+	const none = () => false;
+	assert.equal(
+		buildImportedImagePath({
+			folder: "attachment",
+			sourceName: "C:\\Users\\me\\Photo.JPG",
+			exists: none,
+		}),
+		"attachment/Photo.JPG",
+	);
+	assert.equal(
+		buildImportedImagePath({
+			folder: "",
+			sourceName: "/home/me/cover.png",
+			exists: none,
+		}),
+		"cover.png",
+	);
+	// Занятое имя получает суффикс, расширение сохраняется.
+	const taken = new Set(["attachment/cover.png", "attachment/cover 1.png"]);
+	assert.equal(
+		buildImportedImagePath({
+			folder: "attachment",
+			sourceName: "cover.png",
+			exists: (path) => taken.has(path),
+		}),
+		"attachment/cover 2.png",
+	);
+	// Без расширения — png по умолчанию.
+	assert.equal(
+		buildImportedImagePath({
+			folder: "img",
+			sourceName: "screenshot",
+			exists: none,
+		}),
+		"img/screenshot.png",
 	);
 });

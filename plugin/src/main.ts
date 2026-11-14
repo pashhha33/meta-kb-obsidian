@@ -18,6 +18,8 @@ import {
 	buildAttachmentIndex,
 	buildImageWrapperPlan,
 	decideAttachment,
+	fileBasename,
+	fileExtension,
 	isImagePath,
 	normalizeAttachmentPath,
 	shouldSyncBody,
@@ -27,9 +29,14 @@ import {
 } from "./core/attachment";
 import type { SuggestCandidate } from "./core/suggest";
 import {
+	buildImportedImagePath,
 	buildPastedImagePath,
 	clipboardImageExtension,
 	guessAttachmentFolder,
+	parseFileNameW,
+	parsePathList,
+	parseUriList,
+	pickImageFilePaths,
 	resolveAttachmentFolder,
 } from "./core/clipboard";
 import {
@@ -60,6 +67,30 @@ const REGISTRY_REBUILD_DEBOUNCE_MS = 300;
 function noteBody(content: string): string {
 	const match = /^---\r?\n[\s\S]*?\r?\n---\r?\n?/.exec(content);
 	return match ? content.slice(match[0].length) : content;
+}
+
+/** Источник изображения из буфера обмена, готовый к записи в vault. */
+interface ClipboardSource {
+	bytes: ArrayBuffer;
+	/** Расширение без точки. */
+	extension: string;
+	/** Имя исходного файла (пусто — растровый снимок из буфера). */
+	name?: string;
+}
+
+/** Часть Electron API буфера обмена, которая нам нужна. */
+interface ElectronClipboard {
+	readImage?: () => { isEmpty(): boolean; toPNG(): Uint8Array };
+	read?: (format: string) => string;
+	readBuffer?: (format: string) => Uint8Array;
+}
+
+/** Буфер Node/Electron → ArrayBuffer, который принимает `vault.createBinary`. */
+function toArrayBuffer(bytes: Uint8Array): ArrayBuffer {
+	return bytes.buffer.slice(
+		bytes.byteOffset,
+		bytes.byteOffset + bytes.byteLength,
+	) as ArrayBuffer;
 }
 
 /**
@@ -138,7 +169,9 @@ export default class MetaKBPlugin extends Plugin {
 		this.addCommand({
 			id: "create-image-wrapper",
 			name: "Create image wrapper",
-			callback: () => this.openImageWrapperPicker(),
+			callback: () => {
+				void this.openImageWrapperPicker();
+			},
 		});
 
 		// C-IMG-04 п.2: источник — изображение из буфера обмена.
@@ -324,11 +357,16 @@ export default class MetaKBPlugin extends Plugin {
 
 	private openCreateObject(): void {
 		new CreateObjectModal(this.app, {
-			types: CORE_TYPES.map((type) => ({
-				typeValue: type.type_value,
-				label: type.label,
-				group: type.group,
-			})),
+			// `image` в списке нет: обёртка создаётся только через поток выбора
+			// изображения (C-IMG-04), иначе объект появится без `attachment` —
+			// нарушение INV-24 в обход всей проверки «один файл — одна обёртка».
+			types: CORE_TYPES.filter((type) => type.type_value !== "image").map(
+				(type) => ({
+					typeValue: type.type_value,
+					label: type.label,
+					group: type.group,
+				}),
+			),
 			definitionLookup: (typeValue) =>
 				findTypeDefinitionId(this.registry.all(), typeValue),
 			folder: "",
@@ -337,6 +375,18 @@ export default class MetaKBPlugin extends Plugin {
 	}
 
 	private async createObject(typeValue: string, title: string): Promise<void> {
+		// Защита на случай вызова в обход списка: `image` без файла-вложения
+		// бессмысленен, поэтому уходим в обычный поток создания обёртки.
+		if (typeValue === "image") {
+			new Notice(
+				"Meta KB: обёртка изображения создаётся командой «Create image " +
+					"wrapper» — там выбирается файл (C-IMG-04).",
+				8000,
+			);
+			await this.openImageWrapperPicker();
+			return;
+		}
+
 		const definedBy = findTypeDefinitionId(this.registry.all(), typeValue);
 		if (!definedBy) {
 			new Notice(
@@ -369,18 +419,27 @@ export default class MetaKBPlugin extends Plugin {
 	 * для новой обёртки нельзя, а засорять сетку неактивными элементами
 	 * незачем. Ручной путь остаётся: если он указывает на обёрнутый файл,
 	 * диалог скажет об этом и предложит открыть существующую обёртку.
+	 *
+	 * Если свободных файлов нет, диалог не открывается — но и тупика быть не
+	 * должно: сначала пробуем буфер обмена (C-IMG-04 п.2), и только если там
+	 * пусто, объясняем, почему создавать нечего.
 	 */
-	private openImageWrapperPicker(): void {
+	private async openImageWrapperPicker(): Promise<void> {
 		const all = this.listImagePaths();
 		const imagePaths = unwrappedImagePaths(all, this.attachmentIndex);
 		if (imagePaths.length === 0) {
+			const pasted = await this.pasteImageWrapper({ silent: true });
+			if (pasted) {
+				return;
+			}
 			new Notice(
 				all.length === 0
-					? "Meta KB: в хранилище нет изображений — добавьте файл-картинку " +
-							"и повторите создание обёртки."
-					: `Meta KB: все изображения уже обёрнуты (${all.length}). ` +
-							"Новые обёртки создавать не из чего.",
-				8000,
+					? "Meta KB: в хранилище нет изображений, и в буфере обмена тоже " +
+							"пусто. Скопируйте картинку или добавьте файл-изображение."
+					: `Meta KB: все изображения уже обёрнуты (${all.length}), а в буфере ` +
+							"обмена нет картинки. Скопируйте изображение или создайте " +
+							"обёртку из файла на диске.",
+				9000,
 			);
 			return;
 		}
@@ -542,6 +601,157 @@ export default class MetaKBPlugin extends Plugin {
 		return null;
 	}
 
+	/** Node-модуль в контексте Obsidian (desktop); null — недоступен. */
+	private nodeRequire(id: string): unknown {
+		const req = (window as unknown as { require?: (name: string) => unknown })
+			.require;
+		if (typeof req !== "function") {
+			return null;
+		}
+		try {
+			return req(id);
+		} catch (err) {
+			console.warn(`Meta KB: модуль «${id}» недоступен`, err);
+			return null;
+		}
+	}
+
+	/** Существует ли локальный файл на диске. */
+	private isLocalFile(path: string): boolean {
+		const fs = this.nodeRequire("fs") as {
+			existsSync?: (p: string) => boolean;
+			statSync?: (p: string) => { isFile(): boolean };
+		} | null;
+		if (!fs?.existsSync || !fs.statSync) {
+			return false;
+		}
+		try {
+			return fs.existsSync(path) && fs.statSync(path).isFile();
+		} catch {
+			return false;
+		}
+	}
+
+	/** Прочитать локальные файлы с диска как источники для импорта. */
+	private readLocalImages(paths: string[]): ClipboardSource[] {
+		const fs = this.nodeRequire("fs") as {
+			readFileSync?: (p: string) => Uint8Array;
+		} | null;
+		if (!fs?.readFileSync) {
+			return [];
+		}
+		const out: ClipboardSource[] = [];
+		for (const path of paths) {
+			try {
+				out.push({
+					bytes: toArrayBuffer(fs.readFileSync(path)),
+					extension: fileExtension(path) || "png",
+					name: fileBasename(path),
+				});
+			} catch (err) {
+				console.warn(`Meta KB: не удалось прочитать ${path}`, err);
+			}
+		}
+		return out;
+	}
+
+	/**
+	 * Пути из буфера, когда скопирован **файл** (проводник Windows).
+	 *
+	 * В этом случае растровой картинки в буфере нет: проводник кладёт список
+	 * путей. Форматы перебираются от самого точного к запасным, потому что
+	 * набор зависит от источника копирования.
+	 */
+	private clipboardFilePaths(clipboard: ElectronClipboard): string[] {
+		const out: string[] = [];
+		const readBuffer = (format: string): Uint8Array | null => {
+			try {
+				return clipboard.readBuffer?.(format) ?? null;
+			} catch {
+				return null;
+			}
+		};
+		const readText = (format: string): string => {
+			try {
+				return String(clipboard.read?.(format) ?? "");
+			} catch {
+				return "";
+			}
+		};
+
+		const fileNameW = readBuffer("FileNameW");
+		if (fileNameW) {
+			out.push(...parseFileNameW(fileNameW));
+		}
+		const fileName = readBuffer("FileName");
+		if (fileName) {
+			out.push(...parsePathList(new TextDecoder().decode(fileName)));
+		}
+		const uriList = readBuffer("text/uri-list");
+		if (uriList) {
+			out.push(...parseUriList(new TextDecoder().decode(uriList)));
+		}
+		out.push(...parsePathList(readText("text/plain")));
+		return out;
+	}
+
+	/**
+	 * Что лежит в буфере обмена — в порядке приоритета.
+	 *
+	 * 1. Растровое изображение (скопировано из браузера/редактора) — его
+	 *    отдаёт `readClipboardImage`.
+	 * 2. Файлы из проводника (`FileNameW`, `text/uri-list`, `text/plain`):
+	 *    растровой картинки там нет, поэтому файл читается с диска.
+	 */
+	private async readClipboardSources(): Promise<ClipboardSource[]> {
+		const bitmap = await this.readClipboardImage();
+		if (bitmap) {
+			return [
+				{
+					bytes: bitmap.bytes,
+					extension: clipboardImageExtension(bitmap.mime) ?? "png",
+				},
+			];
+		}
+
+		const electron = this.nodeRequire("electron") as {
+			clipboard?: ElectronClipboard;
+		} | null;
+		const clipboard = electron?.clipboard;
+		if (clipboard) {
+			const local = this.readLocalImages(
+				pickImageFilePaths(this.clipboardFilePaths(clipboard), (path) =>
+					this.isLocalFile(path),
+				),
+			);
+			if (local.length > 0) {
+				return local;
+			}
+		}
+
+		// Запасной путь: Web Clipboard API отдаёт `text/uri-list` для файлов.
+		try {
+			const api = navigator.clipboard as unknown as {
+				read?: () => Promise<ClipboardItem[]>;
+			};
+			const items = await api?.read?.();
+			const candidates: string[] = [];
+			for (const item of items ?? []) {
+				if (!item.types.includes("text/uri-list")) {
+					continue;
+				}
+				const blob = await item.getType("text/uri-list");
+				candidates.push(...parseUriList(await blob.text()));
+			}
+			return this.readLocalImages(
+				pickImageFilePaths(candidates, (path) => this.isLocalFile(path)),
+			);
+		} catch (err) {
+			console.warn("Meta KB: navigator.clipboard.read() недоступен", err);
+		}
+		return [];
+	}
+
 	/**
 	 * Папка вложений: настройка Obsidian `attachmentFolderPath`, а если её
 	 * прочитать не удалось — самая населённая папка с изображениями.
@@ -563,55 +773,74 @@ export default class MetaKBPlugin extends Plugin {
 		return resolveAttachmentFolder(config, activeFolder);
 	}
 
-	/**
-	 * Создать обёртку из изображения в буфере обмена (C-IMG-04 п.2).
+/**
+	 * Создать обёртки из содержимого буфера обмена (C-IMG-04 п.2).
 	 *
-	 * Имя файла повторяет формат Obsidian (`Pasted image …`), чтобы вложения из
-	 * буфера не выбивались из остальных файлов хранилища.
+	 * Растровая картинка сохраняется как `Pasted image ….png`, файл из
+	 * проводника — под исходным именем (уникализируется при совпадении).
+	 * Возвращает `true`, если создана хотя бы одна обёртка.
 	 */
-	private async pasteImageWrapper(): Promise<void> {
-		const image = await this.readClipboardImage();
-		if (!image) {
-			new Notice(
-				"Meta KB: в буфере обмена нет изображения. Скопируйте картинку и " +
-					"повторите команду.",
-				8000,
-			);
-			return;
+	private async pasteImageWrapper(
+		options: { silent?: boolean } = {},
+	): Promise<boolean> {
+		const sources = await this.readClipboardSources();
+		if (sources.length === 0) {
+			if (!options.silent) {
+				new Notice(
+					"Meta KB: в буфере обмена нет изображения. Скопируйте картинку " +
+						"или файл-изображение и повторите команду.",
+					8000,
+				);
+			}
+			return false;
 		}
 
 		const folder = this.attachmentFolder();
-		const path = buildPastedImagePath({
-			folder,
-			now: new Date(),
-			extension: clipboardImageExtension(image.mime) ?? "png",
-			exists: (candidate) =>
-				this.app.vault.getAbstractFileByPath(candidate) !== null,
-		});
-
 		await this.ensureFolder(folder);
-		let file: TFile;
-		try {
-			file = await this.app.vault.createBinary(path, image.bytes);
-		} catch (err) {
-			console.error("Meta KB: не удалось сохранить изображение из буфера", err);
-			new Notice(`Meta KB: не удалось сохранить ${path}`);
-			return;
+		const exists = (candidate: string): boolean =>
+			this.app.vault.getAbstractFileByPath(candidate) !== null;
+
+		const created: SuggestCandidate[] = [];
+		for (const source of sources) {
+			const path = source.name
+				? buildImportedImagePath({ folder, sourceName: source.name, exists })
+				: buildPastedImagePath({
+						folder,
+						now: new Date(),
+						extension: source.extension,
+						exists,
+					});
+			try {
+				await this.app.vault.createBinary(path, source.bytes);
+			} catch (err) {
+				console.error("Meta KB: не удалось сохранить изображение из буфера", err);
+				new Notice(`Meta KB: не удалось сохранить ${path}`);
+				continue;
+			}
+			const candidate = await this.ensureImageWrapper(path);
+			if (!candidate) {
+				new Notice(
+					`Meta KB: изображение сохранено (${path}), но обёртку создать ` +
+						"не удалось.",
+					8000,
+				);
+				continue;
+			}
+			created.push(candidate);
 		}
 
-		const candidate = await this.ensureImageWrapper(file.path);
-		if (!candidate) {
-			new Notice(
-				`Meta KB: изображение сохранено (${file.path}), но обёртку создать ` +
-					"не удалось.",
-				8000,
-			);
-			return;
+		if (created.length === 0) {
+			return false;
 		}
-		new Notice(`Meta KB: создана обёртка из буфера обмена: ${candidate.title}`);
+		new Notice(
+			created.length === 1
+				? `Meta KB: обёртка создана из буфера обмена: ${created[0].title}`
+				: `Meta KB: создано обёрток из буфера обмена: ${created.length}`,
+			8000,
+		);
 
 		const dest = this.app.metadataCache.getFirstLinkpathDest(
-			candidate.linkpath,
+			created[0].linkpath,
 			"",
 		);
 		if (dest) {
@@ -621,6 +850,7 @@ export default class MetaKBPlugin extends Plugin {
 				console.warn("Meta KB: не удалось открыть обёртку", err);
 			}
 		}
+		return true;
 	}
 
 	/** Открыть объект модели по его `id`. */
