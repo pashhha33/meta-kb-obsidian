@@ -11,6 +11,7 @@ const pluginDir = join(root, "plugin");
 const gates = [
 	{ name: "G1 check-state", cmd: "node", args: ["tools/check-state.mjs"], cwd: root },
 	{ name: "G2 schema-check", cmd: "node", args: ["tools/schema-check.mjs"], cwd: root },
+	{ name: "G2b check-version", cmd: "node", args: ["tools/check-version.mjs"], cwd: root },
 	{ name: "G3a build", cmd: "npm", args: ["run", "build"], cwd: pluginDir },
 	{ name: "G3b test", cmd: "npm", args: ["test"], cwd: pluginDir },
 	{ name: "G3c check:bundle", cmd: "npm", args: ["run", "check:bundle"], cwd: pluginDir },
