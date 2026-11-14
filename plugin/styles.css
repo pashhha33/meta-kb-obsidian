@@ -489,6 +489,83 @@ textarea.meta-kb-input {
 	width: min(640px, 92vw);
 }
 
+/* --- Окно команд плагина --- */
+.meta-kb-commands {
+	width: min(560px, 92vw);
+}
+
+.meta-kb-command-group-title {
+	margin: 6px 0 2px;
+	color: var(--text-muted);
+	font-size: var(--font-ui-smaller);
+	font-weight: var(--font-semibold);
+	letter-spacing: 0.04em;
+	text-transform: uppercase;
+}
+
+.meta-kb-command-list {
+	display: flex;
+	flex-direction: column;
+	gap: 2px;
+}
+
+/* Пункт — <button>, поэтому сбрасываем умолчания Obsidian: `button` задаёт
+   height: var(--input-height) и white-space: nowrap, а
+   `button:not(.clickable-icon)` — фон и тень. Селектор с контейнером даёт
+   специфичность (0,2,0) против (0,1,1) у второй правила. */
+.meta-kb-command-list .meta-kb-command-item {
+	display: flex;
+	align-items: center;
+	justify-content: flex-start;
+	gap: 10px;
+	width: 100%;
+	height: auto;
+	min-height: var(--input-height);
+	white-space: normal;
+	padding: 6px 8px;
+	border: none;
+	background-color: transparent;
+	box-shadow: none;
+	border-radius: var(--radius-s);
+	text-align: left;
+	color: var(--text-normal);
+	cursor: pointer;
+}
+
+.meta-kb-command-list .meta-kb-command-item:hover {
+	background-color: var(--background-modifier-hover);
+}
+
+.meta-kb-command-list .meta-kb-command-item.is-disabled {
+	opacity: 0.5;
+	cursor: default;
+}
+
+.meta-kb-command-list .meta-kb-command-item.is-disabled:hover {
+	background-color: transparent;
+}
+
+.meta-kb-command-icon {
+	display: flex;
+	flex: none;
+	color: var(--text-muted);
+}
+
+.meta-kb-command-text {
+	display: flex;
+	flex-direction: column;
+	min-width: 0;
+}
+
+.meta-kb-command-label {
+	color: var(--text-normal);
+}
+
+.meta-kb-command-desc {
+	color: var(--text-muted);
+	font-size: var(--font-ui-smaller);
+}
+
 .meta-kb-gallery {
 	display: grid;
 	grid-template-columns: repeat(auto-fill, var(--meta-kb-thumb-size, 120px));

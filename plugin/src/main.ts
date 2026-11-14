@@ -56,6 +56,7 @@ import { CreateObjectModal } from "./ui/modals/CreateObjectModal";
 import { BootstrapModal } from "./ui/modals/BootstrapModal";
 import { ImageFilePickerModal } from "./ui/modals/ImageFilePickerModal";
 import { DeleteWrapperModal } from "./ui/modals/DeleteWrapperModal";
+import { CommandsModal } from "./ui/modals/CommandsModal";
 
 /** Класс на <body>: включает CSS-скрытие core Properties (styles.css). */
 const HIDE_CORE_PROPERTIES_CSS_CLASS = "meta-kb-hide-core-properties";
@@ -152,9 +153,16 @@ export default class MetaKBPlugin extends Plugin {
 			(leaf: WorkspaceLeaf) => new MetaKBPropertiesView(leaf, this),
 		);
 
+// Одна точка входа: сгруппированное окно команд на русском.
+		this.addCommand({
+			id: "open-commands",
+			name: "Команды Meta KB",
+			callback: () => this.openCommands(),
+		});
+
 		this.addCommand({
 			id: "open-properties-widget",
-			name: "Open properties widget",
+			name: "Панель свойств",
 			callback: () => {
 				void this.activatePropertiesView();
 			},
@@ -162,13 +170,13 @@ export default class MetaKBPlugin extends Plugin {
 
 		this.addCommand({
 			id: "create-object",
-			name: "Create object",
+			name: "Создать объект",
 			callback: () => this.openCreateObject(),
 		});
 
 		this.addCommand({
 			id: "create-image-wrapper",
-			name: "Create image wrapper",
+			name: "Создать обёртку изображения",
 			callback: () => {
 				void this.openImageWrapperPicker();
 			},
@@ -177,7 +185,7 @@ export default class MetaKBPlugin extends Plugin {
 		// C-IMG-04 п.2: источник — изображение из буфера обмена.
 		this.addCommand({
 			id: "create-image-wrapper-from-clipboard",
-			name: "Create image wrapper from clipboard",
+			name: "Обёртка из буфера обмена",
 			callback: () => {
 				void this.pasteImageWrapper();
 			},
@@ -185,7 +193,7 @@ export default class MetaKBPlugin extends Plugin {
 
 		this.addCommand({
 			id: "delete-image-wrapper",
-			name: "Delete image wrapper",
+			name: "Удалить обёртку изображения",
 			checkCallback: (checking) => {
 				const file = this.app.workspace.getActiveFile();
 				if (!file || !this.isImageWrapper(file)) {
@@ -200,7 +208,7 @@ export default class MetaKBPlugin extends Plugin {
 
 		this.addCommand({
 			id: "bootstrap-metamodel",
-			name: "Bootstrap metamodel",
+			name: "Инициализировать метамодель",
 			callback: () => this.openBootstrap(),
 		});
 
@@ -258,6 +266,88 @@ export default class MetaKBPlugin extends Plugin {
 			HIDE_CORE_PROPERTIES_CSS_CLASS,
 			this.settings.hideCoreProperties,
 		);
+	}
+
+	// --- Окно команд -------------------------------------------------------------
+
+	/**
+	 * Сгруппированное окно команд (одна точка входа вместо поиска по палитре).
+	 *
+	 * Пункт «Удалить обёртку» показывается и тогда, когда открыта не обёртка —
+	 * приглушённым, с пояснением условия: так видно, что команда есть, и
+	 * понятно, почему она недоступна.
+	 */
+	private openCommands(): void {
+		const activeFile = this.app.workspace.getActiveFile();
+		const canDeleteWrapper = !!activeFile && this.isImageWrapper(activeFile);
+
+		new CommandsModal(this.app, [
+			{
+				title: "Объекты",
+				items: [
+					{
+						label: "Создать объект",
+						description: "Тип и название → {type}_{id}.md",
+						icon: "file-plus",
+						run: () => this.openCreateObject(),
+					},
+					{
+						label: "Панель свойств",
+						description: "Виджет метамодели в правой панели",
+						icon: "panel-right",
+						run: () => {
+							void this.activatePropertiesView();
+						},
+					},
+				],
+			},
+			{
+				title: "Изображения",
+				items: [
+					{
+						label: "Создать обёртку из файла",
+						description: "Выбрать необёрнутое изображение хранилища",
+						icon: "image-plus",
+						run: () => {
+							void this.openImageWrapperPicker();
+						},
+					},
+					{
+						label: "Обёртка из буфера обмена",
+						description: "Картинка или файл-изображение из буфера",
+						icon: "clipboard-paste",
+						run: () => {
+							void this.pasteImageWrapper();
+						},
+					},
+					{
+						label: "Удалить обёртку изображения",
+						description: canDeleteWrapper
+							? "Для открытой заметки-обёртки"
+							: "Нужна открытая заметка-обёртка",
+						icon: "trash-2",
+						enabled: canDeleteWrapper,
+						run: () => {
+							const file = this.app.workspace.getActiveFile();
+							if (file) {
+								this.openDeleteWrapper(file);
+							}
+						},
+					},
+				],
+			},
+			{
+				title: "Метамодель",
+				items: [
+					{
+						label: "Инициализировать метамодель",
+						description: "10 метатипов и определения 29 типов ядра",
+						icon: "database",
+						run: () => this.openBootstrap(),
+					},
+				],
+			},
+		]).open();
 	}
 
 	// --- Registry ---------------------------------------------------------------
@@ -391,7 +481,7 @@ export default class MetaKBPlugin extends Plugin {
 		if (!definedBy) {
 			new Notice(
 				`Meta KB: определение типа «${typeValue}» не найдено — ` +
-					"у объекта не будет defined_by. Выполните «Bootstrap metamodel».",
+					"у объекта не будет defined_by. Выполните «Инициализировать метамодель».",
 				8000,
 			);
 		}
@@ -773,7 +863,7 @@ export default class MetaKBPlugin extends Plugin {
 		return resolveAttachmentFolder(config, activeFolder);
 	}
 
-/**
+	/**
 	 * Создать обёртки из содержимого буфера обмена (C-IMG-04 п.2).
 	 *
 	 * Растровая картинка сохраняется как `Pasted image ….png`, файл из
@@ -1006,7 +1096,7 @@ export default class MetaKBPlugin extends Plugin {
 		}
 		new Notice(
 			"Meta KB: метамодель в хранилище не инициализирована. " +
-				"Команда «Bootstrap metamodel» создаст метатипы и определения типов.",
+				"Команда «Инициализировать метамодель» создаст метатипы и определения типов.",
 			10000,
 		);
 	}

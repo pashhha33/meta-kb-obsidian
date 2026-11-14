@@ -158,7 +158,7 @@ export class MetaKBSettingTab extends PluginSettingTab {
 		new Setting(containerEl)
 			.setName("Папка определений")
 			.setDesc(
-				"Куда команда «Bootstrap metamodel» кладёт метатипы и определения " +
+				"Куда команда «Инициализировать метамодель» кладёт метатипы и определения " +
 					'типов. Пустое значение — корень хранилища. По умолчанию "_meta".',
 			)
 			.addText((text) => {

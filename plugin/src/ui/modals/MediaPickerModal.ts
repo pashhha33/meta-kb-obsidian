@@ -56,7 +56,7 @@ export class MediaPickerModal extends Modal {
 				cls: "meta-kb-modal-todo",
 				text:
 					"В хранилище нет изображений. Добавьте файл-картинку и создайте " +
-					"обёртку командой «Create image wrapper».",
+					"обёртку командой «Создать обёртку изображения».",
 			});
 		} else {
 			const gallery = body.createEl("div", { cls: "meta-kb-gallery" });

@@ -114,7 +114,7 @@ export class CreateObjectModal extends Modal {
 		} else {
 			lines.push(
 				"Определение этого типа в хранилище не найдено: defined_by не будет " +
-					"заполнен. Выполните команду «Bootstrap metamodel».",
+					"заполнен. Выполните команду «Инициализировать метамодель».",
 			);
 		}
 		this.hintEl.setText(lines.join("\n"));
