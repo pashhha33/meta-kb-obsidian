@@ -1,6 +1,6 @@
 {
   "$schema": "./metamodel.schema.json",
-  "schemaVersion": "1.5.0",
+  "schemaVersion": "1.6.0",
   "meta": {
     "title": "Metamodel contract (v1)",
     "strategy": "variant C: prose = semantics, this file = machine input for the plugin",
@@ -180,6 +180,8 @@
     { "rule_key": "expansion-keys-exist", "severity": "error", "checks": ["INV-25"], "applies_to": ["field-expansion"] },
     { "rule_key": "link-target-exists", "severity": "error", "checks": ["INV-15"], "applies_to": ["*"] },
     { "rule_key": "enum-value-in-set", "severity": "error", "checks": ["properties"], "applies_to": ["*"] },
+    { "rule_key": "type-known", "severity": "error", "checks": ["INV-04"], "applies_to": ["*"] },
+    { "rule_key": "title-required", "severity": "error", "checks": ["INV-07"], "applies_to": ["*"] },
     { "rule_key": "unique-machine-keys", "severity": "error", "checks": ["INV-13", "INV-16", "INV-17"], "applies_to": ["definition"] },
     { "rule_key": "relation-acyclic", "severity": "error", "checks": ["relations"], "applies_to": ["*"] },
     { "rule_key": "relation-endpoints-match", "severity": "error", "checks": ["INV-17"], "applies_to": ["*"] },

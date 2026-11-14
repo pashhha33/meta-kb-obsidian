@@ -41,6 +41,8 @@ export const IMPLEMENTED_RULE_KEYS: string[] = [
 	"expansion-keys-exist",
 	"link-target-exists",
 	"enum-value-in-set",
+	"type-known",
+	"title-required",
 	"unique-machine-keys",
 	"relation-acyclic",
 	"relation-endpoints-match",
@@ -269,6 +271,52 @@ function ruleAttachmentUnique(ctx: Context): Finding[] {
 				),
 			);
 		}
+	}
+	return out;
+}
+
+/**
+ * `type-known` (INV-04) / `title-required` (INV-07) — объект обязан иметь тип,
+ * известный метамодели, и непустой заголовок.
+ *
+ * Без типа не работают ни эффективная схема, ни связи: объект выпадает из
+ * модели, оставаясь файлом. Заголовок — то, чем объект называют в ссылках
+ * (INV-08 требует `aliases[0] = title`, поэтому пустой title ломает и их).
+ */
+function ruleIdentity(record: ObjectRecord): Finding[] {
+	const out: Finding[] = [];
+	const type = record.type.trim();
+	if (type === "") {
+		out.push(
+			finding(
+				record,
+				"type-known",
+				"error",
+				"type",
+				"у объекта не указан type (INV-04)",
+			),
+		);
+	} else if (!isKnownType(type)) {
+		out.push(
+			finding(
+				record,
+				"type-known",
+				"error",
+				"type",
+				`тип «${type}» отсутствует в метамодели (INV-04)`,
+			),
+		);
+	}
+	if (record.title.trim() === "") {
+		out.push(
+			finding(
+				record,
+				"title-required",
+				"error",
+				"title",
+				"у объекта нет title (INV-07)",
+			),
+		);
 	}
 	return out;
 }
@@ -1057,6 +1105,7 @@ export function validateVault(
 	findings.push(...ruleOrphans(ctx, options));
 	for (const record of records) {
 		findings.push(...ruleFilename(record));
+		findings.push(...ruleIdentity(record));
 		findings.push(...ruleAliases(record));
 		findings.push(...ruleImageAttachment(record));
 		findings.push(...ruleLinks(record, ctx));

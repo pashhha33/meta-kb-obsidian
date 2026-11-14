@@ -358,3 +358,40 @@ test("relation-endpoints-match: наследование по extends учиты
 		[],
 	);
 });
+
+test("type-known: неизвестный и пустой тип (INV-04)", () => {
+	const unknown = rec("nonsense", "n1");
+	const empty = rec("", "n2", {}, { path: "n2" });
+	const findings = validateVault([unknown, empty]).findings.filter(
+		(f) => f.rule_key === "type-known",
+	);
+	assert.equal(findings.length, 2);
+	assert.ok(findings.some((f) => f.message.includes("отсутствует в метамодели")));
+	assert.ok(findings.some((f) => f.message.includes("не указан type")));
+});
+
+test("type-known: известный тип молчит", () => {
+	assert.deepEqual(
+		rulesOf(validateVault([rec("note", "n1")]).findings).filter(
+			(key) => key === "type-known",
+		),
+		[],
+	);
+});
+
+test("title-required: пустой заголовок (INV-07)", () => {
+	const findings = validateVault([rec("note", "n1", { title: "" })]).findings.filter(
+		(f) => f.rule_key === "title-required",
+	);
+	assert.equal(findings.length, 1);
+	assert.equal(findings[0].field, "title");
+});
+
+test("title-required: заголовок есть — молчит", () => {
+	assert.deepEqual(
+		rulesOf(validateVault([rec("note", "n1", { title: "Заголовок" })]).findings).filter(
+			(key) => key === "title-required",
+		),
+		[],
+	);
+});

@@ -70,8 +70,14 @@ test("aliases-first-equals-title (INV-08)", () => {
 	const bad = rec("note", "n1", { title: "Новое" }, { aliases: ["Старое"] });
 	const result = validateVault([bad]);
 	assert.deepEqual(rulesOf(result.findings), ["aliases-first-equals-title"]);
-	// Пустой title не проверяется: это не нарушение INV-08.
-	assert.deepEqual(validateVault([rec("note", "n2", { title: "" })]).findings, []);
+	// Пустой title не нарушает INV-08 — его ловит отдельное правило
+	// `title-required` (INV-07), поэтому здесь проверяем только это правило.
+	assert.deepEqual(
+		rulesOf(validateVault([rec("note", "n2", { title: "" })]).findings).filter(
+			(key) => key === "aliases-first-equals-title",
+		),
+		[],
+	);
 });
 
 test("image-has-attachment: у обёртки нет attachment (INV-24)", () => {

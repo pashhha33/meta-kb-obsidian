@@ -41,6 +41,8 @@
 | `expansion-keys-exist` | ключи trigger/adds/applies существуют; триггер enum\|list\<enum\> | INV-25 | `field-expansion` |
 | `link-target-exists` | цель канонической ссылки существует | INV-15 | `*` |
 | `enum-value-in-set` | значение enum входит в список свойства | properties | `*` |
+| `type-known` | `type` указан и известен метамодели | INV-04 | `*` |
+| `title-required` | `title` обязателен и непуст | INV-07 | `*` |
 | `unique-machine-keys` | уникальны type_value, property_key, relation_key, rule_key | INV-13,16,17 | определения |
 | `relation-acyclic` | ацикличны `parent`, `part-of`, `blocks` | relations | `*` |
 | `relation-endpoints-match` | типы концов ∈ области отношения | INV-17 | `*` |
