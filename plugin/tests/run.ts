@@ -12,3 +12,4 @@ import "./id.test";
 import "./yaml.test";
 import "./create.test";
 import "./bootstrap.test";
+import "./bootstrap-files.test";
