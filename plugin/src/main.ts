@@ -21,8 +21,11 @@ import {
 	isImagePath,
 	normalizeAttachmentPath,
 	shouldSyncBody,
+	titleFromPath,
 	unwrappedImagePaths,
+	wrapperForPath,
 } from "./core/attachment";
+import type { SuggestCandidate } from "./core/suggest";
 import {
 	clampThumbnailSize,
 	normalizeThumbnailAspect,
@@ -399,6 +402,67 @@ export default class MetaKBPlugin extends Plugin {
 		} catch (err) {
 			console.warn("Meta KB: не удалось открыть обёртку", err);
 		}
+	}
+
+	/**
+	 * Обёртка для файла: существующая или созданная на месте.
+	 *
+	 * Нужна галерее `media` (INV-23): значение свойства — ссылка на объект
+	 * `image`, поэтому выбранному свободному файлу обёртка создаётся сразу.
+	 */
+	public async ensureImageWrapper(
+		attachment: string,
+	): Promise<SuggestCandidate | null> {
+		const path = normalizeAttachmentPath(attachment);
+		if (path === "" || !isImagePath(path)) {
+			return null;
+		}
+
+		const existing = wrapperForPath(this.attachmentIndex, path);
+		if (existing) {
+			return {
+				id: existing.id,
+				title: existing.title,
+				type: "image",
+				linkpath: `image_${existing.id}`,
+			};
+		}
+
+		const definedBy = findTypeDefinitionId(this.registry.all(), "image");
+		const title = titleFromPath(path) || path;
+		const plan = buildImageWrapperPlan({
+			title,
+			attachment: path,
+			definedBy,
+		});
+		const file = await this.createNote(
+			"",
+			plan.filename,
+			plan.frontmatter,
+			plan.body,
+		);
+		if (!file) {
+			return null;
+		}
+		const id = String(plan.frontmatter["id"] ?? "");
+		const createdTitle = String(plan.frontmatter["title"] ?? title);
+		if (id === "") {
+			return null;
+		}
+		// Индекс правим сразу: metadataCache ещё не успел, а повторный выбор
+		// того же файла в этой же сессии уже должен видеть обёртку (C-IMG-05).
+		this.attachmentIndex.byPath.set(path, {
+			id,
+			title: createdTitle,
+			path,
+		});
+		this.scheduleRebuild();
+		return {
+			id,
+			title: createdTitle,
+			type: "image",
+			linkpath: `image_${id}`,
+		};
 	}
 
 	/** Открыть объект модели по его `id`. */

@@ -15,17 +15,23 @@ import {
 } from "../core/derived";
 import { buildForm } from "../core/form";
 import type { FormModel, FormRow } from "../core/form";
-import { suggestLinks } from "../core/suggest";
+import { candidatesToValue, linksToCandidates, suggestLinks } from "../core/suggest";
 import type { SuggestCandidate } from "../core/suggest";
 import {
 	attachmentEmbed,
 	decideAttachment,
 	shouldSyncBody,
 } from "../core/attachment";
+import {
+	buildMediaPickItems,
+	isMediaListValueType,
+	isMediaValueType,
+} from "../core/media";
 import { thumbnailAspectRatio } from "../core/thumbnails";
 import { FieldRow } from "./FieldRow";
 import { openFieldModal } from "./modals/FieldModal";
 import { ImageFilePickerModal } from "./modals/ImageFilePickerModal";
+import { MediaPickerModal } from "./modals/MediaPickerModal";
 
 import type { MetaKBPluginAPI } from "../plugin-types";
 
@@ -336,10 +342,16 @@ export class MetaKBPropertiesView extends ItemView {
 		}
 
 		const valueType = field.valueType;
-		const isMedia = valueType === "media" || valueType === "list<media>";
-		const targetTypes = isMedia
-			? ["image"]
-			: (relationDef(field.key)?.target_type ?? null);
+
+		// `media` / `list<media>` — значение всегда ссылка на обёртку `image`
+		// (INV-23), поэтому выбираем миниатюрами, а не текстовыми подсказками
+		// (plugin/DESIGN.md §4–5).
+		if (isMediaValueType(valueType)) {
+			this.openMediaPicker(field, rawValue, file);
+			return;
+		}
+
+		const targetTypes = relationDef(field.key)?.target_type ?? null;
 		const registry = this.plugin.getRegistry();
 
 		openFieldModal(this.app, {
@@ -383,6 +395,42 @@ export class MetaKBPropertiesView extends ItemView {
 					file,
 					field.key,
 					attachment === "" ? undefined : attachment,
+				),
+		}).open();
+	}
+
+	/**
+	 * Галерея для `media` / `list<media>` (plugin/DESIGN.md §4–5).
+	 *
+	 * Показывает и готовые обёртки, и свободные изображения: для свободного
+	 * файла обёртка создаётся при подтверждении, а в поле пишется ссылка
+	 * `[[image_{id}|Title]]` (INV-23).
+	 */
+	private openMediaPicker(
+		field: ResolvedField,
+		rawValue: unknown,
+		file: TFile,
+	): void {
+		const plugin = this.plugin;
+		const multiple = isMediaListValueType(field.valueType);
+
+		new MediaPickerModal(this.app, {
+			items: buildMediaPickItems({
+				records: plugin.getRegistry().all(),
+				imagePaths: plugin.listImagePaths(),
+				index: plugin.getAttachmentIndex(),
+			}),
+			multiple,
+			initialValues: linksToCandidates(rawValue).map((c) => c.linkpath),
+			resourcePath: (path) => plugin.resourcePathFor(path),
+			thumbnailSize: plugin.settings.thumbnailSize,
+			thumbnailRatio: thumbnailAspectRatio(plugin.settings.thumbnailAspect),
+			onCreateWrapper: (item) => plugin.ensureImageWrapper(item.previewPath),
+			onSubmit: (candidates) =>
+				this.writeFieldValue(
+					file,
+					field.key,
+					candidatesToValue(candidates, multiple),
 				),
 		}).open();
 	}

@@ -7,7 +7,6 @@ import { BooleanModal } from "./types/BooleanModal";
 import { EnumModal } from "./types/EnumModal";
 import { DateModal } from "./types/DateModal";
 import { LinkModal } from "./types/LinkModal";
-import { MediaModal } from "./types/MediaModal";
 
 // Реэкспорт, чтобы потребители по-прежнему импортировали из "./modals/FieldModal".
 export { FieldModal };
@@ -51,7 +50,12 @@ function createFieldModal(app: App, params: FieldModalParams): FieldModal | null
 			return new LinkModal(app, params);
 		case "media":
 		case "list<media>":
-			return new MediaModal(app, params);
+			// `media` редактируется галереей миниатюр (`MediaPickerModal`) из
+			// `PropertiesView`: ей нужны Registry, индекс вложений и создание
+			// обёртки на месте, которых нет в `FieldModalParams` (DESIGN §4–5).
+			// Сюда управление не попадает; null — чтобы не открыть текстовый
+			// редактор вместо выбора изображения.
+			return null;
 		case "uuid":
 			// Машинное поле: UI-редактирование запрещено (DESIGN.md §7.5.6).
 			return null;

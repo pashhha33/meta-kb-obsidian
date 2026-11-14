@@ -2,6 +2,7 @@ import type { Plugin } from "obsidian";
 import type { MetaKBSettings } from "./settings";
 import type { Registry } from "./core/registry";
 import type { AttachmentIndex } from "./core/attachment";
+import type { SuggestCandidate } from "./core/suggest";
 
 export interface MetaKBPluginAPI extends Plugin {
 	settings: MetaKBSettings;
@@ -15,4 +16,9 @@ export interface MetaKBPluginAPI extends Plugin {
 	listImagePaths(): string[];
 	/** URL файла для превью (getResourcePath); null — файл не найден. */
 	resourcePathFor(path: string): string | null;
+	/**
+	 * Ссылка на обёртку файла: существующую или созданную на месте
+	 * (INV-23, C-IMG-04). null — создать не удалось.
+	 */
+	ensureImageWrapper(attachment: string): Promise<SuggestCandidate | null>;
 }

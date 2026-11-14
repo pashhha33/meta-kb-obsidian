@@ -369,7 +369,7 @@ textarea.meta-kb-input {
 	font-variant-numeric: tabular-nums;
 }
 
-/* --- Выбор ссылок/медиа из Registry (LinkModal / MediaModal) --- */
+/* --- Выбор ссылок из Registry (LinkModal) --- */
 .meta-kb-chips {
 	display: flex;
 	flex-wrap: wrap;
