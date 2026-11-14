@@ -18,6 +18,7 @@ import type { FormModel, FormRow } from "../core/form";
 import { suggestLinks } from "../core/suggest";
 import type { SuggestCandidate } from "../core/suggest";
 import { decideAttachment } from "../core/attachment";
+import { thumbnailAspectRatio } from "../core/thumbnails";
 import { FieldRow } from "./FieldRow";
 import { openFieldModal } from "./modals/FieldModal";
 import { ImageFilePickerModal } from "./modals/ImageFilePickerModal";
@@ -370,6 +371,8 @@ export class MetaKBPropertiesView extends ItemView {
 			decide: (path) =>
 				decideAttachment(this.plugin.getAttachmentIndex(), path, ownerId),
 			resourcePath: (path) => this.plugin.resourcePathFor(path),
+			thumbnailSize: this.plugin.settings.thumbnailSize,
+			thumbnailRatio: thumbnailAspectRatio(this.plugin.settings.thumbnailAspect),
 			initialPath: typeof rawValue === "string" ? rawValue : "",
 			onSubmit: ({ attachment }) =>
 				this.writeFieldValue(

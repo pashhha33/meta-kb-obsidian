@@ -13,6 +13,10 @@ export interface ImageFilePickerParams {
 	decide: (path: string) => AttachDecision;
 	/** URL превью через getResourcePath; null — превью недоступно. */
 	resourcePath: (path: string) => string | null;
+	/** Сторона миниатюры, px. */
+	thumbnailSize: number;
+	/** Пропорции миниатюры (CSS-значение `aspect-ratio`; null — как в файле). */
+	thumbnailRatio: string | null;
 	initialPath?: string;
 	onSubmit: (payload: { title: string; attachment: string }) => void | Promise<void>;
 	/** Перейти к уже существующей обёртке (C-IMG-05). */
@@ -52,6 +56,7 @@ export class ImageFilePickerModal extends Modal {
 	}
 
 	override onOpen(): void {
+		this.modalEl.addClass("meta-kb-image-picker");
 		this.titleEl.setText(
 			this.params.mode === "create-wrapper"
 				? "Создать обёртку изображения"
@@ -66,6 +71,19 @@ export class ImageFilePickerModal extends Modal {
 			});
 		} else {
 			const gallery = body.createEl("div", { cls: "meta-kb-gallery" });
+			// Размер и пропорции — из настроек плагина (см. core/thumbnails.ts).
+			gallery.style.setProperty(
+				"--meta-kb-thumb-size",
+				`${this.params.thumbnailSize}px`,
+			);
+			if (this.params.thumbnailRatio) {
+				gallery.style.setProperty(
+					"--meta-kb-thumb-ratio",
+					this.params.thumbnailRatio,
+				);
+			} else {
+				gallery.addClass("is-native");
+			}
 			for (const path of this.params.imagePaths) {
 				this.renderThumb(gallery, path);
 			}

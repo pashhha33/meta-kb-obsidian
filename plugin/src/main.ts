@@ -18,7 +18,13 @@ import {
 	buildImageWrapperPlan,
 	decideAttachment,
 	isImagePath,
+	normalizeAttachmentPath,
 } from "./core/attachment";
+import {
+	clampThumbnailSize,
+	normalizeThumbnailAspect,
+	thumbnailAspectRatio,
+} from "./core/thumbnails";
 import {
 	isBootstrapped,
 	missingDefinitions,
@@ -30,6 +36,7 @@ import { serializeNote } from "./core/yaml";
 import { CreateObjectModal } from "./ui/modals/CreateObjectModal";
 import { BootstrapModal } from "./ui/modals/BootstrapModal";
 import { ImageFilePickerModal } from "./ui/modals/ImageFilePickerModal";
+import { DeleteWrapperModal } from "./ui/modals/DeleteWrapperModal";
 
 /** Класс на <body>: включает CSS-скрытие core Properties (styles.css). */
 const HIDE_CORE_PROPERTIES_CSS_CLASS = "meta-kb-hide-core-properties";
@@ -115,6 +122,21 @@ export default class MetaKBPlugin extends Plugin {
 		});
 
 		this.addCommand({
+			id: "delete-image-wrapper",
+			name: "Delete image wrapper",
+			checkCallback: (checking) => {
+				const file = this.app.workspace.getActiveFile();
+				if (!file || !this.isImageWrapper(file)) {
+					return false;
+				}
+				if (!checking) {
+					this.openDeleteWrapper(file);
+				}
+				return true;
+			},
+		});
+
+		this.addCommand({
 			id: "bootstrap-metamodel",
 			name: "Bootstrap metamodel",
 			callback: () => this.openBootstrap(),
@@ -134,6 +156,26 @@ export default class MetaKBPlugin extends Plugin {
 		this.registerEvent(this.app.metadataCache.on("resolved", schedule));
 		this.registerEvent(this.app.vault.on("delete", schedule));
 		this.registerEvent(this.app.vault.on("rename", schedule));
+
+		// C-IMG-01: embed обёртки показывает само изображение из `attachment`.
+		this.registerMarkdownPostProcessor((element, context) => {
+			this.renderImageEmbeds(element, context.sourcePath);
+		});
+
+		// C-IMG-07: удаление обёртки с вопросом про привязанный файл.
+		this.registerEvent(
+			this.app.workspace.on("file-menu", (menu, file) => {
+				if (!(file instanceof TFile) || !this.isImageWrapper(file)) {
+					return;
+				}
+				menu.addItem((item) =>
+					item
+						.setTitle("Meta KB: удалить обёртку…")
+						.setIcon("trash")
+						.onClick(() => this.openDeleteWrapper(file)),
+				);
+			}),
+		);
 
 		console.log("Meta KB plugin loaded");
 	}
@@ -255,6 +297,7 @@ export default class MetaKBPlugin extends Plugin {
 			imagePaths,
 			decide: (path) => decideAttachment(this.attachmentIndex, path, null),
 			resourcePath: (path) => this.resourcePathFor(path),
+			...this.thumbnailOptions(),
 			onSubmit: ({ title, attachment }) =>
 				this.createImageWrapper(title, attachment),
 			onOpenExisting: (id) => this.openObjectById(id),
@@ -298,6 +341,130 @@ export default class MetaKBPlugin extends Plugin {
 			return;
 		}
 		void this.app.workspace.getLeaf(true).openFile(file);
+	}
+
+	/** Параметры миниатюр из настроек (см. core/thumbnails.ts). */
+	private thumbnailOptions(): {
+		thumbnailSize: number;
+		thumbnailRatio: string | null;
+	} {
+		return {
+			thumbnailSize: this.settings.thumbnailSize,
+			thumbnailRatio: thumbnailAspectRatio(this.settings.thumbnailAspect),
+		};
+	}
+
+	/** Является ли файл обёрткой изображения. */
+	private isImageWrapper(file: TFile): boolean {
+		if (file.extension !== "md") {
+			return false;
+		}
+		const frontmatter = this.app.metadataCache.getFileCache(file)?.frontmatter;
+		return !!frontmatter && frontmatter["type"] === "image";
+	}
+
+	/** Найти embed-ы обёрток и заменить их изображением (C-IMG-01). */
+	private renderImageEmbeds(element: HTMLElement, sourcePath: string): void {
+		const embeds: HTMLElement[] = [];
+		if (element.matches && element.matches(".internal-embed")) {
+			embeds.push(element);
+		}
+		for (const node of Array.from(
+			element.querySelectorAll<HTMLElement>(".internal-embed"),
+		)) {
+			embeds.push(node);
+		}
+		for (const embed of embeds) {
+			this.renderImageEmbed(embed, sourcePath);
+		}
+	}
+
+	private renderImageEmbed(embed: HTMLElement, sourcePath: string): void {
+		try {
+			const src = embed.getAttribute("src");
+			if (!src) {
+				return;
+			}
+			const target = this.app.metadataCache.getFirstLinkpathDest(src, sourcePath);
+			if (!target || !this.isImageWrapper(target)) {
+				return;
+			}
+			const frontmatter = this.app.metadataCache.getFileCache(target)?.frontmatter;
+			const attachment = normalizeAttachmentPath(frontmatter?.["attachment"]);
+			if (attachment === "" || !isImagePath(attachment)) {
+				return; // не изображение — оставляем embed как есть
+			}
+
+			embed.empty();
+			embed.addClass("meta-kb-image-embed");
+
+			const file = this.app.vault.getAbstractFileByPath(attachment);
+			if (!(file instanceof TFile)) {
+				embed.createEl("span", {
+					cls: "meta-kb-embed-missing",
+					text: `Meta KB: файл вложения не найден: ${attachment}`,
+				});
+				return;
+			}
+			embed.createEl("img", {
+				attr: {
+					src: this.app.vault.getResourcePath(file),
+					alt: target.basename,
+				},
+			});
+		} catch (err) {
+			console.warn("Meta KB: не удалось отрисовать embed обёртки", err);
+		}
+	}
+
+	/** Диалог удаления обёртки: спросить про привязанный файл (C-IMG-07). */
+	private openDeleteWrapper(file: TFile): void {
+		const frontmatter = this.app.metadataCache.getFileCache(file)?.frontmatter;
+		if (!frontmatter) {
+			new Notice("Meta KB: у заметки нет frontmatter.");
+			return;
+		}
+		const attachment = normalizeAttachmentPath(frontmatter["attachment"]);
+		const attachmentFile =
+			attachment === "" ? null : this.app.vault.getAbstractFileByPath(attachment);
+		const duplicate = this.attachmentIndex.duplicates.find(
+			(entry) => entry.path === attachment,
+		);
+		const ownerId =
+			typeof frontmatter["id"] === "string" ? (frontmatter["id"] as string) : "";
+		const otherWrappers = duplicate
+			? duplicate.ids.filter((id) => id !== ownerId).length
+			: 0;
+
+		new DeleteWrapperModal(this.app, {
+			wrapperTitle:
+				typeof frontmatter["title"] === "string"
+					? (frontmatter["title"] as string)
+					: file.basename,
+			attachmentPath: attachment,
+			attachmentExists: attachmentFile instanceof TFile,
+			otherWrappers,
+			onDeleteWrapper: async () => {
+				await this.trashFile(file);
+			},
+			onDeleteBoth: async () => {
+				await this.trashFile(file);
+				if (attachmentFile instanceof TFile) {
+					await this.trashFile(attachmentFile);
+				}
+			},
+		}).open();
+	}
+
+	/** Удалить файл: в корзину, если так настроено в Obsidian. */
+	private async trashFile(file: TFile): Promise<void> {
+		try {
+			await this.app.fileManager.trashFile(file);
+			new Notice(`Meta KB: удалено: ${file.path}`);
+		} catch (err) {
+			console.error("Meta KB: не удалось удалить файл", err);
+			new Notice(`Meta KB: не удалось удалить ${file.path}`);
+		}
 	}
 
 	// --- Bootstrap ---------------------------------------------------------------
@@ -427,6 +594,11 @@ export default class MetaKBPlugin extends Plugin {
 	async loadSettings(): Promise<void> {
 		const stored = (await this.loadData()) as Partial<MetaKBSettings> | null;
 		this.settings = Object.assign({}, DEFAULT_SETTINGS, stored ?? {});
+		// Защита от правки data.json руками: значения настроек нормализуются.
+		this.settings.thumbnailSize = clampThumbnailSize(this.settings.thumbnailSize);
+		this.settings.thumbnailAspect = normalizeThumbnailAspect(
+			this.settings.thumbnailAspect,
+		);
 	}
 
 	async saveSettings(): Promise<void> {

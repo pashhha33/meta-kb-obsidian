@@ -441,21 +441,34 @@ textarea.meta-kb-input {
 }
 
 /* --- Галерея изображений (создание обёртки, C-IMG-04) --- */
+.meta-kb-image-picker {
+	width: min(640px, 92vw);
+}
+
 .meta-kb-gallery {
 	display: grid;
-	grid-template-columns: repeat(auto-fill, minmax(96px, 1fr));
-	gap: 6px;
-	max-height: 280px;
+	grid-template-columns: repeat(auto-fill, var(--meta-kb-thumb-size, 120px));
+	justify-content: start;
+	gap: 8px;
+	max-height: 320px;
 	overflow: auto;
 	padding: 2px;
 	margin-bottom: 8px;
 }
 
+.meta-kb-gallery.is-native {
+	grid-template-columns: repeat(
+		auto-fill,
+		minmax(var(--meta-kb-thumb-size, 120px), 1fr)
+	);
+}
+
 .meta-kb-thumb {
 	display: flex;
 	flex-direction: column;
-	align-items: center;
+	align-items: stretch;
 	gap: 2px;
+	width: var(--meta-kb-thumb-size, 120px);
 	padding: 4px;
 	border: 1px solid var(--background-modifier-border);
 	border-radius: var(--radius-s);
@@ -463,6 +476,10 @@ textarea.meta-kb-input {
 	box-shadow: none;
 	cursor: pointer;
 	overflow: hidden;
+}
+
+.meta-kb-gallery.is-native .meta-kb-thumb {
+	width: auto;
 }
 
 .meta-kb-thumb:hover {
@@ -480,22 +497,30 @@ textarea.meta-kb-input {
 }
 
 .meta-kb-thumb img {
+	display: block;
 	width: 100%;
-	height: 64px;
+	aspect-ratio: var(--meta-kb-thumb-ratio, 1 / 1);
 	object-fit: cover;
 	border-radius: var(--radius-s);
 }
 
+.meta-kb-gallery.is-native .meta-kb-thumb img {
+	aspect-ratio: auto;
+	object-fit: contain;
+	height: auto;
+	max-height: calc(var(--meta-kb-thumb-size, 120px) * 1.6);
+}
+
 .meta-kb-thumb-fallback {
-	width: 100%;
-	height: 64px;
 	display: flex;
 	align-items: center;
 	justify-content: center;
+	aspect-ratio: var(--meta-kb-thumb-ratio, 1 / 1);
 	color: var(--text-faint);
 	font-size: var(--font-ui-smaller);
 	word-break: break-all;
 	text-align: center;
+	padding: 4px;
 }
 
 .meta-kb-thumb-name {
@@ -505,12 +530,33 @@ textarea.meta-kb-input {
 	overflow: hidden;
 	text-overflow: ellipsis;
 	white-space: nowrap;
+	text-align: center;
 }
 
 .meta-kb-thumb-badge {
 	font-size: var(--font-ui-smaller);
 	color: var(--text-faint);
 	font-style: italic;
+	text-align: center;
+}
+
+/* --- Embed обёртки: показываем само изображение (C-IMG-01) --- */
+.internal-embed.meta-kb-image-embed {
+	padding: 0;
+	border: none;
+	background: transparent;
+}
+
+.meta-kb-image-embed img {
+	display: block;
+	max-width: 100%;
+	height: auto;
+	border-radius: var(--radius-s);
+}
+
+.meta-kb-image-embed .meta-kb-embed-missing {
+	color: var(--text-error);
+	font-size: var(--font-ui-smaller);
 }
 
 

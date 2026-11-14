@@ -1,6 +1,16 @@
 import { App, PluginSettingTab, Setting } from "obsidian";
 import type { MetaKBPluginAPI } from "./plugin-types";
 import type { DatetimeDisplay } from "./core/datetime";
+import {
+	clampThumbnailSize,
+	normalizeThumbnailAspect,
+	THUMBNAIL_ASPECT_LABELS,
+	THUMBNAIL_ASPECTS,
+	THUMBNAIL_SIZE_DEFAULT,
+	THUMBNAIL_SIZE_MAX,
+	THUMBNAIL_SIZE_MIN,
+} from "./core/thumbnails";
+import type { ThumbnailAspect } from "./core/thumbnails";
 
 export { formatDatetime, parseDatetimeOffset } from "./core/datetime";
 export type { DatetimeDisplay, DatetimeFormatOptions } from "./core/datetime";
@@ -31,6 +41,10 @@ export interface MetaKBSettings {
 	definitionsFolder: string;
 	/** Предлагать bootstrap, если метамодель в хранилище не инициализирована. */
 	bootstrapOffer: boolean;
+	/** Размер миниатюры в галерее изображений, px. */
+	thumbnailSize: number;
+	/** Пропорции миниатюр галереи. */
+	thumbnailAspect: ThumbnailAspect;
 }
 
 export const DEFAULT_SETTINGS: MetaKBSettings = {
@@ -41,6 +55,8 @@ export const DEFAULT_SETTINGS: MetaKBSettings = {
 	authorSheetChars: 40000,
 	definitionsFolder: "_meta",
 	bootstrapOffer: true,
+	thumbnailSize: THUMBNAIL_SIZE_DEFAULT,
+	thumbnailAspect: "square",
 };
 
 /** Вкладка настроек плагина. */
@@ -164,6 +180,44 @@ export class MetaKBSettingTab extends PluginSettingTab {
 				toggle.setValue(this.plugin.settings.bootstrapOffer);
 				toggle.onChange(async (value) => {
 					this.plugin.settings.bootstrapOffer = value;
+					await this.plugin.saveSettings();
+				});
+			});
+
+		new Setting(containerEl)
+			.setName("Размер миниатюр")
+			.setDesc(
+				`Сторона миниатюры в галерее изображений, ` +
+					`${THUMBNAIL_SIZE_MIN}–${THUMBNAIL_SIZE_MAX} px ` +
+					`(по умолчанию ${THUMBNAIL_SIZE_DEFAULT}).`,
+			)
+			.addText((text) => {
+				text.inputEl.type = "number";
+				text.setValue(String(this.plugin.settings.thumbnailSize));
+				text.onChange(async (value) => {
+					const size = clampThumbnailSize(value);
+					if (size === this.plugin.settings.thumbnailSize) {
+						return;
+					}
+					this.plugin.settings.thumbnailSize = size;
+					await this.plugin.saveSettings();
+				});
+			});
+
+		new Setting(containerEl)
+			.setName("Пропорции миниатюр")
+			.setDesc(
+				"«Квадрат» обрезает картинку по центру — сетка выглядит ровно; " +
+					"«как в файле» сохраняет исходные пропорции.",
+			)
+			.addDropdown((dropdown) => {
+				for (const aspect of THUMBNAIL_ASPECTS) {
+					dropdown.addOption(aspect, THUMBNAIL_ASPECT_LABELS[aspect]);
+				}
+				dropdown.setValue(this.plugin.settings.thumbnailAspect);
+				dropdown.onChange(async (value) => {
+					this.plugin.settings.thumbnailAspect =
+						normalizeThumbnailAspect(value);
 					await this.plugin.saveSettings();
 				});
 			});
