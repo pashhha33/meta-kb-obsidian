@@ -1,5 +1,6 @@
-import { App, Modal } from "obsidian";
-import { FieldValueType } from "../../labels";
+import type { App } from "obsidian";
+import { FieldModal } from "./BaseFieldModal";
+import type { FieldModalParams } from "./BaseFieldModal";
 import { StringModal } from "./types/StringModal";
 import { NumberModal } from "./types/NumberModal";
 import { BooleanModal } from "./types/BooleanModal";
@@ -7,24 +8,19 @@ import { EnumModal } from "./types/EnumModal";
 import { DateModal } from "./types/DateModal";
 import { LinkModal } from "./types/LinkModal";
 import { MediaModal } from "./types/MediaModal";
-import type { SuggestCandidate } from "../../core/suggest";
 
-/** Параметры модалки поля. */
-export interface FieldModalParams {
-	key: string;
-	label: string;
-	valueType: FieldValueType;
-	currentValue: unknown;
-	/** Значения enum из определения свойства (контракт). */
-	enumValues?: string[];
-	/** Подсказки из Registry для link/media (опционально). */
-	suggest?: (query: string) => SuggestCandidate[];
-	/**
-	 * Применить значение: undefined → удалить ключ
-	 * (пустое значение = отсутствие ключа, ontology.md §4.4).
-	 */
-	onApply: (value: unknown) => void | Promise<void>;
-}
+// Реэкспорт, чтобы потребители по-прежнему импортировали из "./modals/FieldModal".
+export { FieldModal };
+export type { FieldModalParams };
+
+/**
+ * Фабрика модалок поля.
+ *
+ * ВНИМАНИЕ: этот модуль импортирует всех наследников `FieldModal`. Базовый
+ * класс вынесен в `BaseFieldModal.ts`, у которого нет обратных зависимостей —
+ * иначе возникает цикл «база ↔ наследники» и `main.js` не загружается
+ * (см. комментарий в `BaseFieldModal.ts`).
+ */
 
 /** Открыть модалку редактирования поля по value_type. */
 export function openFieldModal(app: App, params: FieldModalParams): void {
@@ -61,103 +57,5 @@ function createFieldModal(app: App, params: FieldModalParams): FieldModal | null
 			return null;
 		default:
 			return new StringModal(app, params);
-	}
-}
-
-/**
- * Общий каркас модалки поля (DESIGN.md §7.5.1.1):
- *
- *   Заголовок: Label поля
- *   Подзаголовок: property_key · value_type
- *   [ область ввода — зависит от типа ]
- *   [ Очистить ]        [ Отмена ]  [ OK ]
- *
- * OK — валидация → onApply(значение). «Очистить» — onApply(undefined).
- */
-export abstract class FieldModal extends Modal {
-	protected readonly params: FieldModalParams;
-	private messageEl: HTMLElement | null = null;
-
-	constructor(app: App, params: FieldModalParams) {
-		super(app);
-		this.params = params;
-	}
-
-	override onOpen(): void {
-		this.modalEl.addClass("meta-kb-field-modal");
-		this.titleEl.setText(this.params.label);
-		this.contentEl.createEl("div", {
-			cls: "meta-kb-modal-subtitle",
-			text: `${this.params.key} · ${this.params.valueType}`,
-		});
-
-		const body = this.contentEl.createEl("div", { cls: "meta-kb-modal-body" });
-		this.renderBody(body);
-
-		this.messageEl = this.contentEl.createEl("div", {
-			cls: "meta-kb-modal-message",
-		});
-		this.messageEl.hide();
-
-		const footer = this.contentEl.createEl("div", { cls: "meta-kb-modal-footer" });
-		const clearBtn = footer.createEl("button", { text: "Очистить" });
-		clearBtn.type = "button";
-		const cancelBtn = footer.createEl("button", { text: "Отмена" });
-		cancelBtn.type = "button";
-		const okBtn = footer.createEl("button", { text: "OK", cls: "mod-cta" });
-		okBtn.type = "button";
-		if (!this.canApply()) {
-			okBtn.disabled = true;
-		}
-
-		clearBtn.addEventListener("click", () => {
-			void this.applyValue(undefined);
-		});
-		cancelBtn.addEventListener("click", () => this.close());
-		okBtn.addEventListener("click", () => {
-			void this.applyValue(this.readValue());
-		});
-	}
-
-	/** Тело модалки: элементы ввода по value_type. */
-	protected abstract renderBody(body: HTMLElement): void;
-
-	/** Прочитать значение; undefined = пусто (ключ будет удалён). */
-	protected abstract readValue(): unknown;
-
-	/** Можно ли применить значение (для полноценных модалок — всегда да). */
-	protected canApply(): boolean {
-		return true;
-	}
-
-	/** Валидация перед записью; null = значение корректно. */
-	protected validateValue(value: unknown): string | null {
-		return null;
-	}
-
-	protected showMessage(text: string): void {
-		if (this.messageEl) {
-			this.messageEl.setText(text);
-			this.messageEl.show();
-		}
-	}
-
-	private async applyValue(value: unknown): Promise<void> {
-		const error = this.validateValue(value);
-		if (error) {
-			this.showMessage(error);
-			return;
-		}
-		try {
-			await this.params.onApply(value);
-			this.close();
-		} catch (err) {
-			console.error("Meta KB: ошибка применения значения поля", err);
-			this.showMessage(
-				`Не удалось записать значение: ${
-					err instanceof Error ? err.message : String(err)
-				}`,
-			);
-		}
 	}
 }

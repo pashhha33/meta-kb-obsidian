@@ -1,5 +1,6 @@
 import { App } from "obsidian";
-import { FieldModal, FieldModalParams } from "../FieldModal";
+import { FieldModal } from "../BaseFieldModal";
+import type { FieldModalParams } from "../BaseFieldModal";
 import { renderSuggestSelect } from "../suggestSelect";
 import { candidatesToValue, linksToCandidates } from "../../../core/suggest";
 import type { SuggestCandidate } from "../../../core/suggest";

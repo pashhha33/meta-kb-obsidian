@@ -1,5 +1,6 @@
 import { App } from "obsidian";
-import { FieldModal, FieldModalParams } from "../FieldModal";
+import { FieldModal } from "../BaseFieldModal";
+import type { FieldModalParams } from "../BaseFieldModal";
 
 function asText(value: unknown): string {
         if (typeof value === "string") {

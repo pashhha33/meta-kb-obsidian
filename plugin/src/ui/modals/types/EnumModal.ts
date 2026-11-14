@@ -1,6 +1,7 @@
 import { App } from "obsidian";
 import { enumValueLabel } from "../../../labels";
-import { FieldModal, FieldModalParams } from "../FieldModal";
+import { FieldModal } from "../BaseFieldModal";
+import type { FieldModalParams } from "../BaseFieldModal";
 
 function asStringSet(value: unknown): Set<string> {
 	const result = new Set<string>();
