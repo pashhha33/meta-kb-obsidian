@@ -40,4 +40,9 @@ export class Registry {
 	get size(): number {
 		return this.byId.size;
 	}
+
+	/** Все записи (для suggest и обхода). */
+	all(): ObjectRecord[] {
+		return [...this.byId.values()];
+	}
 }
