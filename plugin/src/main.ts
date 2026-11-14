@@ -615,6 +615,15 @@ export default class MetaKBPlugin extends Plugin {
 		this.openCreateChapter({ bookLinkpath: book, position: target, nameOnly: true });
 	}
 
+	/** Навигация по главам из интерфейса (C-CH-03): «←», «→», «↑ книга». */
+	public async navigateChapter(direction: "prev" | "next" | "book"): Promise<void> {
+		if (direction === "book") {
+			await this.gotoChapterBook();
+			return;
+		}
+		await this.gotoNeighbourChapter(direction);
+	}
+
 	/** Переход к книге открытой главы (C-CH-03, «↑ Книга»). */
 	private async gotoChapterBook(): Promise<void> {
 		const record = this.activeRecord();

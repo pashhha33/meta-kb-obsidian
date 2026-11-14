@@ -16,6 +16,8 @@ import { bookVolume, countCleanChars } from "../core/volume";
 import {
 	chaptersOf,
 	linkpathOf,
+	neighbourPosition,
+	positionOf,
 } from "../core/chapter";
 import type { ObjectRecord } from "../core/loader";
 import { buildForm } from "../core/form";
@@ -74,6 +76,8 @@ export class MetaKBPropertiesView extends ItemView {
 	private lastFile: TFile | null = null;
 	/** Защита от гонок: устаревший async-render не должен рисовать. */
 	private renderSeq = 0;
+	/** Находки для текущей отрисовки (бейдж + значки в строках полей). */
+	private currentFindings: Finding[] = [];
 
 	constructor(leaf: WorkspaceLeaf, plugin: MetaKBPluginAPI) {
 		super(leaf);
@@ -206,7 +210,10 @@ export class MetaKBPropertiesView extends ItemView {
 			return; // отрисован более новый кадр
 		}
 
-		this.renderValidationBadge(header, file);
+		// Находки считаем один раз: их используют и бейдж, и строки полей.
+		this.currentFindings = this.collectFindings(file);
+		this.renderChapterNav(header, file);
+		this.renderValidationBadge(header, this.currentFindings);
 
 		try {
 			this.renderSections(root, file, form, computed);
@@ -365,6 +372,10 @@ export class MetaKBPropertiesView extends ItemView {
 				enumValueLabelFn: (raw) => enumValueLabel(field.key, raw),
 				// DESIGN §6: значение `media` показывается миниатюрой обёртки.
 				mediaThumb: (linkpath) => this.mediaThumbFor(linkpath),
+				// Находки этого поля: значок с текстом правил в подсказке.
+				findings: this.currentFindings.filter(
+					(item) => item.field === field.key,
+				),
 			},
 			{
 				onEdit: () => this.openFieldEditor(field, rawValue, file),
@@ -383,22 +394,75 @@ export class MetaKBPropertiesView extends ItemView {
 	}
 
 	/**
-	 * Бейдж валидации в шапке: сколько находок у открытой заметки.
-	 *
-	 * Показывает то, что вернул `validateVault` (`core/validation.ts`) — полный
-	 * текст правил в подсказке. Развёрнутый отчёт по хранилищу — отдельный срез.
+	 * Находки валидатора для открытой заметки (один прогон на отрисовку).
 	 */
-	private renderValidationBadge(header: HTMLElement, file: TFile): void {
-		let findings: Finding[];
+	private collectFindings(file: TFile): Finding[] {
 		try {
-			findings = findingsForPath(
+			return findingsForPath(
 				validateVault(this.plugin.getRegistry().all()),
 				file.basename,
 			);
 		} catch (err) {
 			this.plugin.getLogger().warn("Meta KB: не удалось проверить заметку", err);
+			return [];
+		}
+	}
+
+	/**
+	 * Навигация по главе в шапке (C-CH-03): «←», «Книга», «→».
+	 *
+	 * Соседняя глава может отсутствовать — тогда команда предложит создать её
+	 * (C-CH-04). «←» недоступна у первой главы: номера начинаются с 1.
+	 */
+	private renderChapterNav(header: HTMLElement, file: TFile): void {
+		const record = this.plugin
+			.getRegistry()
+			.all()
+			.find((item) => item.path === file.basename);
+		if (!record || record.type !== "chapter") {
 			return;
 		}
+		const position = positionOf(record);
+
+		const nav = header.createEl("span", { cls: "meta-kb-chapter-nav" });
+		const addButton = (
+			icon: string,
+			title: string,
+			direction: "prev" | "next" | "book",
+			enabled: boolean,
+		): void => {
+			const button = nav.createEl("button", {
+				cls: "meta-kb-chapter-nav-btn" + (enabled ? "" : " is-disabled"),
+			});
+			button.type = "button";
+			setIcon(button, icon);
+			button.setAttribute("title", title);
+			button.disabled = !enabled;
+			if (enabled) {
+				button.addEventListener("click", (evt: Event) => {
+					evt.stopPropagation();
+					void this.plugin.navigateChapter(direction);
+				});
+			}
+		};
+
+		addButton(
+			"arrow-left",
+			"Предыдущая глава",
+			"prev",
+			neighbourPosition(position, "prev") !== null,
+		);
+		addButton("arrow-up", "Книга главы", "book", true);
+		addButton("arrow-right", "Следующая глава", "next", true);
+	}
+
+	/**
+	 * Бейдж валидации в шапке: сколько находок у открытой заметки.
+	 *
+	 * Показывает то, что вернул `validateVault` (`core/validation.ts`) — полный
+	 * текст правил в подсказке.
+	 */
+	private renderValidationBadge(header: HTMLElement, findings: Finding[]): void {
 		if (findings.length === 0) {
 			return;
 		}

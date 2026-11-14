@@ -31,6 +31,8 @@ export interface FieldRowModel {
 	 * показывается текстом, а не пустым местом.
 	 */
 	mediaThumb?: (linkpath: string) => MediaThumb | null;
+	/** Находки валидатора по этому полю — значок с подсказкой. */
+	findings?: Array<{ severity: string; rule_key: string; message: string }>;
 }
 
 /** Действия строки. */
@@ -78,6 +80,22 @@ export class FieldRow {
 			text: model.label,
 		});
 		labelEl.setAttribute("title", model.key);
+
+		// Значок находки: сразу видно, какое поле нарушает правило.
+		const findings = model.findings ?? [];
+		if (findings.length > 0) {
+			const hasError = findings.some((item) => item.severity === "error");
+			const mark = labelEl.createEl("span", {
+				cls: `meta-kb-field-finding ${hasError ? "is-error" : "is-warning"}`,
+			});
+			setIcon(mark, hasError ? "alert-circle" : "alert-triangle");
+			mark.setAttribute(
+				"title",
+				findings
+					.map((item) => `${item.rule_key}: ${item.message}`)
+					.join("\n"),
+			);
+		}
 
 		// Значение: boolean → toggle, иначе summary
 		if (model.valueType === "boolean" && !model.readOnly) {

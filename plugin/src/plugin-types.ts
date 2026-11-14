@@ -26,4 +26,9 @@ export interface MetaKBPluginAPI extends Plugin {
 	getLogger(): Logger;
 	/** Применить настройки логирования после их изменения. */
 	applyLogSettings(): void;
+	/**
+	 * Навигация по главам (C-CH-03): «←» предыдущая, «→» следующая,
+	 * «book» — книга главы. Для не-главы ничего не делает.
+	 */
+	navigateChapter(direction: "prev" | "next" | "book"): Promise<void>;
 }
