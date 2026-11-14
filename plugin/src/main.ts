@@ -28,6 +28,8 @@ import {
 	wrapperForPath,
 } from "./core/attachment";
 import type { SuggestCandidate } from "./core/suggest";
+import { candidateOf, candidatesToValue } from "./core/suggest";
+import type { ObjectRecord } from "./core/loader";
 import {
 	buildImportedImagePath,
 	buildPastedImagePath,
@@ -59,6 +61,19 @@ import { DeleteWrapperModal } from "./ui/modals/DeleteWrapperModal";
 import { CommandsModal } from "./ui/modals/CommandsModal";
 import { LogModal } from "./ui/modals/LogModal";
 import { ValidationModal } from "./ui/modals/ValidationModal";
+import { ChapterModal } from "./ui/modals/ChapterModal";
+import {
+	bookLabel,
+	bookLinkpathOf,
+	booksForPicker,
+	CHAPTER_TYPE,
+	findChapter,
+	linkpathOf,
+	neighbourPosition,
+	nextFreePosition,
+	positionOf,
+	resolveChapterTitle,
+} from "./core/chapter";
 import { validateVault } from "./core/validation";
 import { Logger, normalizeLogLevel } from "./core/logging";
 import type { LogEntry } from "./core/logging";
@@ -265,6 +280,37 @@ export default class MetaKBPlugin extends Plugin {
 			callback: () => this.openValidationReport(),
 		});
 
+		// Главы (ADR-002, C-CH): создание и навигация.
+		this.addCommand({
+			id: "create-chapter",
+			name: "Создать главу",
+			callback: () => this.openCreateChapter(),
+		});
+
+		this.addCommand({
+			id: "chapter-prev",
+			name: "Предыдущая глава",
+			callback: () => {
+				void this.gotoNeighbourChapter("prev");
+			},
+		});
+
+		this.addCommand({
+			id: "chapter-next",
+			name: "Следующая глава",
+			callback: () => {
+				void this.gotoNeighbourChapter("next");
+			},
+		});
+
+		this.addCommand({
+			id: "chapter-book",
+			name: "Открыть книгу главы",
+			callback: () => {
+				void this.gotoChapterBook();
+			},
+		});
+
 		this.addSettingTab(new MetaKBSettingTab(this.app, this));
 
 		this.applyHideCoreProperties();
@@ -321,6 +367,251 @@ export default class MetaKBPlugin extends Plugin {
 		);
 	}
 
+	// --- Главы (ADR-002, C-CH) ----------------------------------------------------
+
+/** Запись для открытой заметки (по имени файла). */
+	private activeRecord(): ObjectRecord | undefined {
+		const file = this.app.workspace.getActiveFile();
+		if (!file) {
+			return undefined;
+		}
+		return this.registry
+			.all()
+			.find((record) => record.path === file.basename);
+	}
+
+	/** Файл объекта по имени без расширения. */
+	private fileByBasename(path: string): TFile | undefined {
+		return this.app.vault
+			.getMarkdownFiles()
+			.find((file) => file.basename === path);
+	}
+
+	/**
+	 * Диалог создания главы (C-CH-01).
+	 *
+	 * Книга и номер подставляются по контексту: если открыта глава — её книга и
+	 * следующий свободный номер. `nameOnly` используется для соседней главы
+	 * (C-CH-04), когда книга и номер уже вычислены.
+	 */
+	private openCreateChapter(
+		options: {
+			bookLinkpath?: string;
+			position?: number;
+			nameOnly?: boolean;
+		} = {},
+	): void {
+		const records = this.registry.all();
+		const books = booksForPicker(records);
+		if (books.length === 0) {
+			new Notice(
+				"Meta KB: в хранилище нет книг. Создайте объект типа book — " +
+					"глава всегда принадлежит книге (C-CH-05).",
+				8000,
+			);
+			return;
+		}
+
+		const bookOptions = books.map((record) => ({
+			linkpath: linkpathOf(record),
+			label: bookLabel(record),
+		}));
+
+		const activeChapter =
+			this.activeRecord()?.type === CHAPTER_TYPE ? this.activeRecord() : undefined;
+		const bookLinkpath =
+			options.bookLinkpath ??
+			(activeChapter ? bookLinkpathOf(activeChapter) : "") ??
+			"";
+		const fallbackBook =
+			bookLinkpath !== "" ? bookLinkpath : bookOptions[0].linkpath;
+
+		const fixedBook = options.nameOnly
+			? books.find((record) => linkpathOf(record) === fallbackBook)
+			: undefined;
+
+		new ChapterModal(this.app, {
+			books: bookOptions,
+			fixed:
+				fixedBook && options.position !== undefined
+					? {
+							bookLinkpath: linkpathOf(fixedBook),
+							bookLabel: bookLabel(fixedBook),
+							position: options.position,
+							existingTitle: findChapter(
+								records,
+								linkpathOf(fixedBook),
+								options.position,
+							)?.title,
+						}
+					: undefined,
+			initialBook: fallbackBook,
+			initialPosition:
+				options.position ?? nextFreePosition(records, fallbackBook),
+			lookup: (linkpath, position) => {
+				const existing = findChapter(this.registry.all(), linkpath, position);
+				return existing ? { title: existing.title } : null;
+			},
+			onSubmit: (value) => this.createChapter(value),
+		}).open();
+	}
+
+	/**
+	 * Создать главу или обновить существующую (C-CH-01, C-CH-02, C-CH-06).
+	 *
+	 * Глава с тем же «книга + номер» — это обновление, а не дубль: явное имя
+	 * заменяет `title` и `aliases[0]`, пропущенное — сохраняет существующее.
+	 */
+	private async createChapter(value: {
+		bookLinkpath: string;
+		position: number;
+		title: string;
+	}): Promise<void> {
+		const records = this.registry.all();
+		const existing = findChapter(records, value.bookLinkpath, value.position);
+		const title = resolveChapterTitle({
+			position: value.position,
+			requested: value.title,
+			existing: existing?.title,
+		});
+
+		if (existing) {
+			const file = this.fileByBasename(existing.path);
+			if (!file) {
+				new Notice(`Meta KB: файл главы ${existing.path} не найден.`);
+				return;
+			}
+			const explicit = value.title.trim() !== "";
+			try {
+				await this.app.fileManager.processFrontMatter(file, (fm) => {
+					if (explicit) {
+						fm["title"] = title;
+						const aliases = Array.isArray(fm["aliases"]) ? fm["aliases"] : [];
+						fm["aliases"] = [
+							title,
+							...aliases.filter(
+								(item): item is string =>
+									typeof item === "string" && item !== title,
+							),
+						];
+					}
+					fm["updated_at"] = new Date().toISOString();
+				});
+			} catch (err) {
+				this.logger.error("не удалось обновить главу", err);
+				new Notice(`Meta KB: не удалось обновить главу ${existing.path}`);
+				return;
+			}
+			this.logger.info("глава обновлена", { path: existing.path, explicit });
+			new Notice(
+				explicit
+					? `Meta KB: глава №${value.position} переименована в «${title}»`
+					: `Meta KB: глава №${value.position} уже существует — открываю её`,
+			);
+			try {
+				await this.app.workspace.getLeaf(true).openFile(file);
+			} catch (err) {
+				this.logger.warn("не удалось открыть главу", err);
+			}
+			return;
+		}
+
+		const book = records.find(
+			(record) => linkpathOf(record) === value.bookLinkpath,
+		);
+		if (!book) {
+			new Notice(`Meta KB: книга «${value.bookLinkpath}» не найдена.`);
+			return;
+		}
+
+		const definedBy = findTypeDefinitionId(records, CHAPTER_TYPE);
+		const plan = buildNewObject({ typeValue: CHAPTER_TYPE, title, definedBy });
+		plan.frontmatter["chapter-of"] = candidatesToValue(
+			[candidateOf(book)],
+			false,
+		);
+		plan.frontmatter["position"] = value.position;
+
+		const file = await this.createNote("", plan.filename, plan.frontmatter);
+		if (!file) {
+			return;
+		}
+		this.logger.info("глава создана", {
+			path: file.basename,
+			book: value.bookLinkpath,
+			position: value.position,
+		});
+		new Notice(
+			`Meta KB: создана глава «${title}» — ${bookLabel(book)}, №${value.position}`,
+		);
+		try {
+			await this.app.workspace.getLeaf(true).openFile(file);
+		} catch (err) {
+			this.logger.warn("не удалось открыть главу", err);
+		}
+	}
+
+	/**
+	 * Переход к соседней главе (C-CH-03, C-CH-04).
+	 *
+	 * Если соседняя глава есть — открываем её; если нет — спрашиваем только имя
+	 * и создаём.
+	 */
+	private async gotoNeighbourChapter(direction: "prev" | "next"): Promise<void> {
+		const record = this.activeRecord();
+		if (!record || record.type !== CHAPTER_TYPE) {
+			new Notice("Meta KB: откройте главу, чтобы перейти к соседней.");
+			return;
+		}
+		const position = positionOf(record);
+		const target = neighbourPosition(position, direction);
+		if (target === null) {
+			new Notice(
+				direction === "prev"
+					? "Meta KB: это первая глава книги."
+					: "Meta KB: у главы нет числового номера — соседняя не вычисляется.",
+			);
+			return;
+		}
+		const book = bookLinkpathOf(record);
+		if (book === "") {
+			new Notice("Meta KB: у главы не указана книга (chapter-of).");
+			return;
+		}
+		const existing = findChapter(this.registry.all(), book, target);
+		if (existing) {
+			const file = this.fileByBasename(existing.path);
+			if (file) {
+				await this.app.workspace.getLeaf(true).openFile(file);
+				return;
+			}
+		}
+		this.openCreateChapter({ bookLinkpath: book, position: target, nameOnly: true });
+	}
+
+	/** Переход к книге открытой главы (C-CH-03, «↑ Книга»). */
+	private async gotoChapterBook(): Promise<void> {
+		const record = this.activeRecord();
+		if (!record || record.type !== CHAPTER_TYPE) {
+			new Notice("Meta KB: откройте главу, чтобы перейти к её книге.");
+			return;
+		}
+		const book = bookLinkpathOf(record);
+		const target = this.registry
+			.all()
+			.find((item) => linkpathOf(item) === book);
+		if (!target) {
+			new Notice("Meta KB: книга главы не найдена в Registry.");
+			return;
+		}
+		const file = this.fileByBasename(target.path);
+		if (!file) {
+			new Notice(`Meta KB: файл книги ${target.path} не найден.`);
+			return;
+		}
+		await this.app.workspace.getLeaf(true).openFile(file);
+	}
+
 	// --- Окно команд -------------------------------------------------------------
 
 	/** Журнал плагина: последние записи с уровнем и подробностями. */
@@ -361,6 +652,7 @@ export default class MetaKBPlugin extends Plugin {
 	private openCommands(): void {
 		const activeFile = this.app.workspace.getActiveFile();
 		const canDeleteWrapper = !!activeFile && this.isImageWrapper(activeFile);
+		const isChapterOpen = this.activeRecord()?.type === CHAPTER_TYPE;
 
 		new CommandsModal(this.app, [
 			{
@@ -425,6 +717,48 @@ export default class MetaKBPlugin extends Plugin {
 						description: "10 метатипов и определения 29 типов ядра",
 						icon: "database",
 						run: () => this.openBootstrap(),
+					},
+				],
+			},
+			{
+				title: "Глава",
+				items: [
+					{
+						label: "Создать главу",
+						description: "Книга, номер, имя — имя можно пропустить",
+						icon: "book-plus",
+						run: () => this.openCreateChapter(),
+					},
+					{
+						label: "Предыдущая глава",
+						description: isChapterOpen
+							? "Глава с номером на единицу меньше"
+							: "Нужна открытая глава",
+						icon: "arrow-left",
+						enabled: isChapterOpen,
+						run: () => {
+							void this.gotoNeighbourChapter("prev");
+						},
+					},
+					{
+						label: "Следующая глава",
+						description: isChapterOpen
+							? "Нет — предложит создать"
+							: "Нужна открытая глава",
+						icon: "arrow-right",
+						enabled: isChapterOpen,
+						run: () => {
+							void this.gotoNeighbourChapter("next");
+						},
+					},
+					{
+						label: "Открыть книгу главы",
+						description: isChapterOpen ? "Переход к chapter-of" : "Нужна открытая глава",
+						icon: "arrow-up",
+						enabled: isChapterOpen,
+						run: () => {
+							void this.gotoChapterBook();
+						},
 					},
 				],
 			},
