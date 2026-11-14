@@ -58,6 +58,8 @@ import { ImageFilePickerModal } from "./ui/modals/ImageFilePickerModal";
 import { DeleteWrapperModal } from "./ui/modals/DeleteWrapperModal";
 import { CommandsModal } from "./ui/modals/CommandsModal";
 import { LogModal } from "./ui/modals/LogModal";
+import { ValidationModal } from "./ui/modals/ValidationModal";
+import { validateVault } from "./core/validation";
 import { Logger, normalizeLogLevel } from "./core/logging";
 import type { LogEntry } from "./core/logging";
 
@@ -257,6 +259,12 @@ export default class MetaKBPlugin extends Plugin {
 			callback: () => this.openLog(),
 		});
 
+		this.addCommand({
+			id: "validate-vault",
+			name: "Проверить хранилище",
+			callback: () => this.openValidationReport(),
+		});
+
 		this.addSettingTab(new MetaKBSettingTab(this.app, this));
 
 		this.applyHideCoreProperties();
@@ -318,6 +326,29 @@ export default class MetaKBPlugin extends Plugin {
 	/** Журнал плагина: последние записи с уровнем и подробностями. */
 	private openLog(): void {
 		new LogModal(this.app, this.logger).open();
+	}
+
+	/**
+	 * Проверка всего хранилища по правилам контракта.
+	 *
+	 * Отчёт показывает находки по файлам; сводка уходит в журнал, подробности —
+	 * на уровне `debug`, чтобы не вытеснять из буфера рабочие записи.
+	 */
+	private openValidationReport(): void {
+		const result = validateVault(this.registry.all(), {
+			imagePaths: this.listImagePaths(),
+		});
+		const summary =
+			result.findings.length === 0
+				? "находок нет"
+				: `ошибок ${result.errors}, предупреждений ${result.warnings}`;
+		this.logger.info(`проверка хранилища: ${summary}`);
+		for (const finding of result.findings) {
+			this.logger.debug(
+				`${finding.path} · ${finding.rule_key}: ${finding.message}`,
+			);
+		}
+		new ValidationModal(this.app, result, () => this.openValidationReport()).open();
 	}
 
 	/**
@@ -400,6 +431,12 @@ export default class MetaKBPlugin extends Plugin {
 			{
 				title: "Диагностика",
 				items: [
+					{
+						label: "Проверить хранилище",
+						description: "Находки по правилам контракта, по файлам",
+						icon: "shield-check",
+						run: () => this.openValidationReport(),
+					},
 					{
 						label: "Показать лог",
 						description: `Записи плагина (уровень: ${this.settings.logLevel})`,

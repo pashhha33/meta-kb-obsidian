@@ -52,7 +52,7 @@ interface PropertyDef {
 	trigger?: boolean;
 }
 
-interface RelationDef {
+export interface RelationDef {
 	relation_key: string;
 	label: string;
 	source_type: string[];
@@ -231,6 +231,13 @@ export const ALL_PROPERTIES: PropertyDef[] = [
 
 /** Все отношения: классификация (4) + ядро (16). */
 export const ALL_RELATIONS: RelationDef[] = metamodel.relations;
+
+/** Ключи правил валидации из контракта (сверка «всё реализовано» — в тестах). */
+export const VALIDATION_RULE_KEYS: string[] = (
+	metamodel.validationRules as Array<{ rule_key?: unknown }>
+)
+	.map((rule) => rule.rule_key)
+	.filter((key): key is string => typeof key === "string");
 
 /** Правила field-expansion (FE-01…10). */
 export const FIELD_EXPANSION: FieldExpansionDef[] = metamodel.fieldExpansion;

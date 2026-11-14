@@ -17,6 +17,7 @@ import "./attachment.test";
 import "./media.test";
 import "./clipboard.test";
 import "./validation.test";
+import "./validation-rules.test";
 import "./logging.test";
 import "./thumbnails.test";
 import "./styles.test";

@@ -521,6 +521,62 @@ textarea.meta-kb-input {
 	font-variant-numeric: tabular-nums;
 }
 
+/* --- Отчёт проверки хранилища --- */
+.meta-kb-report-modal {
+	width: min(680px, 94vw);
+}
+
+.meta-kb-report-list {
+	display: flex;
+	flex-direction: column;
+	gap: 10px;
+	max-height: 55vh;
+	overflow: auto;
+}
+
+.meta-kb-report-group {
+	display: flex;
+	flex-direction: column;
+	gap: 3px;
+}
+
+.meta-kb-report-path {
+	font-family: var(--font-monospace);
+	font-size: var(--font-ui-smaller);
+	color: var(--text-muted);
+}
+
+.meta-kb-report-finding {
+	display: flex;
+	align-items: baseline;
+	gap: 8px;
+	padding: 3px 6px;
+	border-left: 3px solid var(--background-modifier-border);
+	background-color: var(--background-secondary);
+	border-radius: var(--radius-s);
+	font-size: var(--font-ui-small);
+}
+
+.meta-kb-report-finding.is-error {
+	border-left-color: var(--text-error);
+}
+
+.meta-kb-report-finding.is-warning {
+	border-left-color: var(--text-warning);
+}
+
+.meta-kb-report-rule {
+	flex: none;
+	font-family: var(--font-monospace);
+	font-size: var(--font-ui-smaller);
+	color: var(--text-faint);
+}
+
+.meta-kb-report-message {
+	min-width: 0;
+	word-break: break-word;
+}
+
 /* --- Журнал плагина --- */
 .meta-kb-log-modal {
 	width: min(720px, 94vw);

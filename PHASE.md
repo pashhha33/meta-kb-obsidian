@@ -2,10 +2,10 @@
 
 **Репозиторий:** https://github.com/pashhha33/meta-kb-obsidian
 **Фаза:** IMPL-PLUGIN
-**Итерация:** ITER-2026-11-14-9
+**Итерация:** ITER-2026-11-14-10
 **Статус:** completed
-**Версия плагина:** 0.4.0 (`plugin/manifest.json`, `plugin/package.json`, `plugin/package-lock.json`); поднимается в ветке итерации, проверяется воротами G2b. Контракт: schemaVersion 1.4.0, настроек 14.
-**Цель итерации:** Логирование: `core/logging.ts` (уровень-порог `silent`/`error`/`warn`/`info`/`debug`, кольцевой буфер 500 записей, приёмник для консоли), настройки `logLevel` и `logToConsole` в контракте и в Settings, команда «Показать лог» и группа «Диагностика» в окне команд; все 25 вызовов `console.*` переведены на логгер.
-**Предыдущая итерация:** ITER-2026-11-14-8 (Validation: движок правил, 9 из 23, бейдж находок в шапке виджета) — completed.
+**Версия плагина:** 0.5.0 (`plugin/manifest.json`, `plugin/package.json`, `plugin/package-lock.json`); поднимается в ветке итерации, проверяется воротами G2b. Контракт: schemaVersion 1.4.0, настроек 14, правил валидации 23 — все реализованы.
+**Цель итерации:** Validation, срез 2 — оставшиеся 14 правил (граф определений, отношения, главы, коллекции, `orphan-attachment`) и команда «Проверить хранилище» с модалкой отчёта; тест сверяет реализованный набор правил с контрактом в обе стороны; исправлен ложный `inactive-field-value` на структурных полях определений.
+**Предыдущая итерация:** ITER-2026-11-14-9 (логирование: уровни, журнал, команда «Показать лог», schemaVersion 1.4.0) — completed.
 **Установлено в vault:** `meta-kb-obsidian_Valte/.obsidian/plugins/meta_kb` — обновляется командой `node tools/install-vault.mjs --vault <путь>`; после установки перезагрузить плагин в Obsidian.
-**Следующее действие:** Validation, срез 2 — оставшиеся 14 правил (граф и определения: `extends-acyclic`/`extends-depth`, `defined-by-consistent`, `unique-machine-keys`, `trigger-values-subset`, `expansion-keys-exist`, `relation-acyclic`, `relation-endpoints-match`, `relation-cardinality-form`, `facet-target-is-facet`, `chapter-position-unique`, `chapter-of-required`, `collection-element-consistent`, `orphan-attachment`), команда «Проверить хранилище» с модалкой отчёта и иконки находок в строках полей. Версия среза — 0.5.0. После этого: C-IMG-03 (hover-иконки, нужна ручная проверка в Live Preview), C-IMG-02 (колонка «изображение» в Bases).
+**Следующее действие:** иконки находок в строках полей (строка свойств показывает значок с `rule_key` и текстом для своего поля), затем переключение `accept.mjs` на собранный бандл, чтобы G4 проверял те же правила (долг в `metamodel/gaps.md` §4.1). После них: C-IMG-03 (hover-иконки, нужна ручная проверка в Live Preview), C-IMG-02 (колонка «изображение» в Bases). Версия следующего среза — 0.6.0.
