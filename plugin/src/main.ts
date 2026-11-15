@@ -1,4 +1,4 @@
-import { Notice, Plugin, TFile, WorkspaceLeaf } from "obsidian";
+import { Notice, Plugin, TFile, WorkspaceLeaf, Modal } from "obsidian";
 import {
 	DEFAULT_SETTINGS,
 	MetaKBSettings,
@@ -25,6 +25,7 @@ import {
 	shouldSyncBody,
 	titleFromPath,
 	unwrappedImagePaths,
+	wrapperForId,
 	wrapperForPath,
 } from "./core/attachment";
 import type { SuggestCandidate } from "./core/suggest";
@@ -61,6 +62,7 @@ import { DeleteWrapperModal } from "./ui/modals/DeleteWrapperModal";
 import { CommandsModal } from "./ui/modals/CommandsModal";
 import { LogModal } from "./ui/modals/LogModal";
 import { ValidationModal } from "./ui/modals/ValidationModal";
+import { renderCardImage } from "./ui/CardImage";
 import { ChapterModal } from "./ui/modals/ChapterModal";
 import {
 	bookLabel,
@@ -396,6 +398,13 @@ export default class MetaKBPlugin extends Plugin {
 		});
 		this.hoverActions.attach();
 
+		// --- Карточки (C-IMG-02) -------------------------------------------
+		this.addCommand({
+			id: "open-card-view",
+			name: "Представление карточек",
+			callback: () => this.openCardView(),
+		});
+
 		// C-IMG-07: удаление обёртки с вопросом про привязанный файл.
 		this.registerEvent(
 			this.app.workspace.on("file-menu", (menu, file) => {
@@ -655,6 +664,30 @@ export default class MetaKBPlugin extends Plugin {
 		this.openCreateChapter({ bookLinkpath: book, position: target, nameOnly: true });
 	}
 
+	public async getImageWrapperPreview(
+		wrapperId: string,
+	): Promise<{
+		url: string;
+		width: number;
+		height: number;
+		label: string;
+	} | null> {
+		const wrapper = wrapperForId(this.attachmentIndex, wrapperId);
+		if (!wrapper) {
+			return null;
+		}
+		const url = this.resourcePathFor(wrapper.path);
+		if (!url) {
+			return null;
+		}
+		return {
+			url,
+			width: this.settings.thumbnailSize,
+			height: this.settings.thumbnailSize,
+			label: wrapper.title || wrapper.path,
+		};
+	}
+
 	/** Навигация по главам из интерфейса (C-CH-03): «←», «→», «↑ книга». */
 	public async navigateChapter(direction: "prev" | "next" | "book"): Promise<void> {
 		if (direction === "book") {
@@ -787,6 +820,65 @@ export default class MetaKBPlugin extends Plugin {
 	/** Журнал плагина: последние записи с уровнем и подробностями. */
 	private openLog(): void {
 		new LogModal(this.app, this.logger).open();
+	}
+
+	/** Представление карточек: показывает все обёртки `image` с их превью (C-IMG-02). */
+	private async openCardView(): Promise<void> {
+		const records = this.registry.all();
+		const images = records.filter(
+			(item) =>
+				item.type === "image" &&
+				isImagePath(String(item.props["attachment"] ?? "")),
+		);
+		if (images.length === 0) {
+			new Notice(
+				"Meta KB: в хранилище нет обёрток изображений.",
+				8000,
+			);
+			return;
+		}
+
+		const container = document.createElement("div");
+		container.addClass("meta-kb-card-view");
+		const header = container.createEl("div", { cls: "meta-kb-card-view-header" });
+		header.createEl("h2", { text: "Карточки изображений" });
+		const info = header.createEl("div", { cls: "meta-kb-card-view-info" });
+		info.createEl("span", {
+			text: `${images.length} обёрток`,
+		});
+
+		const grid = container.createEl("div", { cls: "meta-kb-card-grid" });
+		let rendered = 0;
+		for (const record of images) {
+			const preview = await this.getImageWrapperPreview(record.id);
+			if (!preview) {
+				continue;
+			}
+			renderCardImage(grid, {
+				url: preview.url,
+				width: preview.width,
+				height: preview.height,
+				label: preview.label,
+				onClick: () => {
+					this.openObjectById(record.id);
+				},
+			});
+			rendered += 1;
+		}
+
+		if (rendered === 0) {
+			new Notice(
+				"Meta KB: у обёрток нет валидных вложений картинок.",
+				8000,
+			);
+			return;
+		}
+
+		const modal = new Modal(this.app);
+		modal.titleEl.setText("Карточки изображений");
+		modal.contentEl.empty();
+		modal.contentEl.appendChild(container);
+		modal.open();
 	}
 
 	/**
@@ -940,6 +1032,12 @@ export default class MetaKBPlugin extends Plugin {
 						description: "Находки по правилам контракта, по файлам",
 						icon: "shield-check",
 						run: () => this.openValidationReport(),
+					},
+					{
+						label: "Представление карточек",
+						description: "Все обёртки изображений с превью (C-IMG-02)",
+						icon: "image",
+						run: () => this.openCardView(),
 					},
 					{
 						label: "Показать лог",

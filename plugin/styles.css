@@ -531,10 +531,6 @@ textarea.meta-kb-input {
 
 /* --- Находки валидации в строках и навигация по главе --- */
 .meta-kb-field-finding {
-	display: inline-flex;
-	align-items: center;
-	margin-left: 4px;
-	vertical-align: middle;
 	cursor: help;
 }
 
@@ -549,6 +545,61 @@ textarea.meta-kb-input {
 .meta-kb-field-finding svg {
 	width: 12px;
 	height: 12px;
+}
+
+.meta-kb-card-view {
+	width: min(800px, 94vw);
+}
+
+.meta-kb-card-view-header {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	margin-bottom: 12px;
+}
+
+.meta-kb-card-view-info {
+	color: var(--text-muted);
+	font-size: var(--font-ui-smaller);
+}
+
+.meta-kb-card-grid {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 16px;
+}
+
+.meta-kb-card-image {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	width: 170px;
+	gap: 6px;
+}
+
+.meta-kb-card-image-img {
+	width: 150px;
+	height: 150px;
+	object-fit: cover;
+	border-radius: var(--radius-s);
+	border: 1px solid var(--background-modifier-border);
+	background-color: var(--background-secondary);
+	cursor: pointer;
+}
+
+.meta-kb-card-image-img:hover {
+	border-color: var(--interactive-accent);
+	box-shadow: var(--shadow-s);
+}
+
+.meta-kb-card-image-label {
+	font-size: var(--font-ui-smaller);
+	color: var(--text-muted);
+	text-align: center;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+	max-width: 150px;
 }
 
 .meta-kb-chapter-nav {

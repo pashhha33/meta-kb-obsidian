@@ -13,6 +13,7 @@ import {
 	shouldSyncBody,
 	titleFromPath,
 	unwrappedImagePaths,
+	wrapperForId,
 	wrapperForPath,
 } from "../src/core/attachment";
 
@@ -69,6 +70,22 @@ test("buildAttachmentIndex: только image, путь нормализова�
 	assert.equal(index.byPath.get("img/poster.jpg")?.id, "img2");
 	assert.equal(index.byPath.get("img/poster.jpg")?.title, "Постер");
 	assert.equal(index.duplicates.length, 0);
+});
+
+test("wrapperForId: обратный индекс обёртки (C-IMG-02)", () => {
+	const index = buildAttachmentIndex(records);
+	const wrapper = wrapperForId(index, "img1");
+	assert.equal(wrapper?.path, "img/cover.png");
+	assert.equal(wrapper?.title, "Обложка");
+	// Неизвестный id и не-image запись в индекс не попадают.
+	assert.equal(wrapperForId(index, "нет-такого"), undefined);
+	assert.equal(wrapperForId(index, "p1"), undefined);
+	// У дубля в byId остаётся первая обёртка (byPath тоже первая).
+	const duplicated = buildAttachmentIndex([
+		{ id: "a", type: "image", title: "A", props: { attachment: "x.png" } },
+		{ id: "b", type: "image", title: "B", props: { attachment: "x.png" } },
+	]);
+	assert.equal(wrapperForId(duplicated, "a")?.path, "x.png");
 });
 
 test("buildAttachmentIndex: дубли attachment — нарушение C-IMG-05", () => {

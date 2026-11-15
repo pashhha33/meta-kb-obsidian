@@ -95,6 +95,8 @@ export interface AttachmentIndex {
 	byPath: Map<string, AttachmentEntry>;
 	/** Нарушения C-IMG-05: один файл попал в несколько обёрток. */
 	duplicates: Array<{ path: string; ids: string[] }>;
+	/** id обёртки → запись обёртки (первая найденная). */
+	byId: Map<string, AttachmentEntry>;
 }
 
 /** Построить индекс `attachment → image` из записей объектов. */
@@ -102,6 +104,7 @@ export function buildAttachmentIndex(
 	records: AttachmentRecord[],
 ): AttachmentIndex {
 	const byPath = new Map<string, AttachmentEntry>();
+	const byId = new Map<string, AttachmentEntry>();
 	const idsByPath = new Map<string, string[]>();
 
 	for (const record of records) {
@@ -119,7 +122,9 @@ export function buildAttachmentIndex(
 			idsByPath.set(path, [record.id]);
 		}
 		if (!byPath.has(path)) {
-			byPath.set(path, { id: record.id, title: record.title, path });
+			const entry = { id: record.id, title: record.title, path };
+			byPath.set(path, entry);
+			byId.set(record.id, entry);
 		}
 	}
 
@@ -127,7 +132,15 @@ export function buildAttachmentIndex(
 		.filter(([, ids]) => ids.length > 1)
 		.map(([path, ids]) => ({ path, ids }));
 
-	return { byPath, duplicates };
+	return { byPath, duplicates, byId };
+}
+
+/** Обёртка по её id, если она есть в индексе. */
+export function wrapperForId(
+	index: AttachmentIndex,
+	id: string,
+): AttachmentEntry | undefined {
+	return index.byId.get(id);
 }
 
 /** Обёртка для пути, если она уже есть. */

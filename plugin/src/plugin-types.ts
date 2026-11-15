@@ -31,4 +31,14 @@ export interface MetaKBPluginAPI extends Plugin {
 	 * «book» — книга главы. Для не-главы ничего не делает.
 	 */
 	navigateChapter(direction: "prev" | "next" | "book"): Promise<void>;
+	/**
+	 * Превью обёртки для карточного представления (C-IMG-02).
+	 * `null` — у обёртки нет картинки или файл не найден.
+	 */
+	getImageWrapperPreview(wrapperId: string): Promise<{
+		url: string;
+		width: number;
+		height: number;
+		label: string;
+	} | null>;
 }
